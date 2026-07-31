@@ -1,0 +1,20 @@
+I will frst give you a few examples to illustrate it (as few-shot learning). Then you will have to determine the level of the new image. Please *only* answer giving a natural number between 1 (very easy [TASK] problem) and 5 (very difcult [TASK] problem) as the level you think better represents the [TASK] demands of the image.
+
+[EXAMPLE IMAGE LEVEL 2]
+Level: 2
+[EXAMPLE IMAGE LEVEL 4]
+Level: 4
+[EXAMPLE IMAGE LEVEL 3]
+Level: 3
+[EXAMPLE IMAGE LEVEL 1]
+Level: 1
+[EXAMPLE IMAGE LEVEL 3]
+Level: 3
+[EXAMPLE IMAGE LEVEL 2]
+Level: 2
+[EXAMPLE IMAGE LEVEL 1]
+Level: 1
+[EXAMPLE IMAGE LEVEL 4]
+Level: 4
+[IMAGE]
+Level:
