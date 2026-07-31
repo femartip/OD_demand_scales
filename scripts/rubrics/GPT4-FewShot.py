@@ -41,10 +41,11 @@ PREDEFINED_DATASETS = ["voc-2007", "coco-2017"]
 
 GPT4V_KEY = "YOUR_API_KEY"
 GPT4V_ENDPOINT = "YOUR API ENDPOINT"
-image_ids = pd.read_csv(f"images_experiment_{dataset}.csv", dtype={'image_id': object})
+image_ids = pd.read_csv(f"./outputs/object_detection/images_experiment_{dataset}.csv", dtype={'image_id': object})
 
 # check if those instances have been already labelled
-destination_path = f'./v{version}_{task_to_evaluate}_fewshot_labelled_images_{dataset}.csv'
+os.makedirs("./outputs/annotations", exist_ok=True)
+destination_path = f'./outputs/annotations/v{version}_{task_to_evaluate}_fewshot_labelled_images_{dataset}.csv'
 labelled_prev = False
 already_labelled = []
 if os.path.isfile(destination_path):

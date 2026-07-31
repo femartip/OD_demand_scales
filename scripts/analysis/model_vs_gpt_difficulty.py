@@ -2,8 +2,10 @@ import pandas as pd
 import re
 import matplotlib.pyplot as plt
 import sys
+import os
 
 # Configuration
+os.makedirs("./outputs/figures", exist_ok=True)
 if len(sys.argv) < 3:
     print("Usage: python script_name.py <version> <task>")
     sys.exit(1)
@@ -14,12 +16,12 @@ version = str(sys.argv[1])
 task = str(sys.argv[2])
 
 
-df = pd.read_csv("detection_difficulty.csv",dtype={'image_id': object}, usecols= ["image_id","accuracy","accuracy_detection"])
+df = pd.read_csv("./outputs/object_detection/detection_difficulty.csv",dtype={'image_id': object}, usecols= ["image_id","accuracy","accuracy_detection"])
 
 if task == "localization" or task == "detection":
-    gpt_diff = pd.read_csv(f"v{version}_{task}_fewshot_dataset_gpt_difficulty.csv", dtype={'image_id': object})
+    gpt_diff = pd.read_csv(f"./outputs/annotations/v{version}_{task}_fewshot_dataset_gpt_difficulty.csv", dtype={'image_id': object})
 else:
-    gpt_diff = pd.read_csv(f"v{version}_fewshot_dataset_gpt_difficulty.csv", dtype={'image_id': object})
+    gpt_diff = pd.read_csv(f"./outputs/annotations/v{version}_fewshot_dataset_gpt_difficulty.csv", dtype={'image_id': object})
 
 
 gpt_diff = gpt_diff[gpt_diff['level'] != 'error']
@@ -40,7 +42,7 @@ plt.xlabel('Level')
 plt.ylabel('Count')
 plt.title('Localisation Level Distribution')
 
-plt.savefig(f"v{version}_{task}_level_distribution.pdf")
+plt.savefig(f"./outputs/figures/v{version}_{task}_level_distribution.pdf")
 
 
 grouped = df.groupby('image_id', as_index=False).mean()
@@ -65,7 +67,7 @@ print(avg_trend)
 plt.plot(avg_trend['level'], avg_trend['accuracy'], color='#FF6859', linewidth=2, label='Object Detection Accuracy',marker='o')
 
 
-df = pd.read_csv("detection_difficulty.csv",dtype={'image_id': object}, usecols= ["image_id","accuracy_detection"])
+df = pd.read_csv("./outputs/object_detection/detection_difficulty.csv",dtype={'image_id': object}, usecols= ["image_id","accuracy_detection"])
 
 grouped = df.groupby('image_id', as_index=False).mean()
 final = pd.merge(grouped, gpt_diff, on='image_id')
@@ -84,8 +86,8 @@ plt.xlabel('Level')
 plt.ylabel('Accuracy')
 plt.legend()
 if task == "localization" or task == "detection":
-    plt.savefig(f"v{version}_{task}_fewshot_detection_scatterplot.pdf")
+    plt.savefig(f"./outputs/figures/v{version}_{task}_fewshot_detection_scatterplot.pdf")
 else:
-    plt.savefig(f"v{version}_fewshot_detection_scatterplot.pdf")
+    plt.savefig(f"./outputs/figures/v{version}_fewshot_detection_scatterplot.pdf")
 
 plt.show()

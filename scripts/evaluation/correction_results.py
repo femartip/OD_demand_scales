@@ -74,12 +74,12 @@ if __name__ == '__main__':
     
     predefined = dataset in PREDEFINED_DATASETS
 
-    directory_path = f'./results_{dataset}'
-    files_list = list_files_in_directory(directory_path)
+    directory_path = f'./outputs/object_detection/{dataset}'
+    files_list = [file for file in list_files_in_directory(directory_path) if file.endswith("_object_detection_evaluation.json")]
     
     for file in files_list:
 
-        f = open(f'results_{dataset}/' + file)
+        f = open(os.path.join(directory_path, file))
         data = json.load(f)
 
         for i in range(len(data["samples"])):
@@ -88,4 +88,5 @@ if __name__ == '__main__':
             data["samples"][i]['eval_coco_fp'] = results['false_positives']
             data["samples"][i]['eval_coco_fn'] = results['false_negatives']
  
-        save_json_to_folder(data, f'./correction_{dataset}', file)
+        output_file = file.replace("_object_detection_evaluation.json", "_corrected_object_detection_evaluation.json")
+        save_json_to_folder(data, directory_path, output_file)

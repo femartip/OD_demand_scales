@@ -8,8 +8,9 @@ def get_all_file_paths(folder):
 
     for root, _, files in os.walk(folder):
         for file in files:
-            file_path = os.path.join(root, file)
-            file_paths.append(file_path)
+            if file.endswith("_localization_evaluation.json"):
+                file_path = os.path.join(root, file)
+                file_paths.append(file_path)
 
     return file_paths
 
@@ -18,7 +19,7 @@ datasets = ["coco-2017","voc-2007","driving"]
 all_paths = {}
 for dataset in datasets:
     print(dataset)
-    folder = f'./detections_{dataset}'  # Replace with your folder path
+    folder = f'./outputs/object_detection/{dataset}'  # Replace with your folder path
     all_paths[dataset] = get_all_file_paths(folder)
 
 print(all_paths)
@@ -39,7 +40,7 @@ for dataset in all_paths:
                 temp_df.loc[i, "fp_detection"] = image['detection_fp']
                 temp_df.loc[i, "fn_detection"] = image['detection_fn']
                 
-            temp_df["model"] = os.path.basename(file_path).replace("_results.json", "")
+            temp_df["model"] = os.path.basename(file_path).replace("_localization_evaluation.json", "")
             temp_df["dataset"] = dataset
             df = pd.concat([df, temp_df])
 
@@ -49,4 +50,5 @@ df["accuracy_detection"] = df["tp_detection"] / (df["tp_detection"] + df["fn_det
 df = df.fillna(1)
 
 
-df.to_csv("detection_difficulty.csv", index = False)
+os.makedirs("./outputs/object_detection", exist_ok=True)
+df.to_csv("./outputs/object_detection/detection_difficulty.csv", index = False)

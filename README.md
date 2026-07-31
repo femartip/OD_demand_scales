@@ -31,3 +31,35 @@ Pipeline:
 5. Group images according to their predicted demand level.
 6. Measure the performance of several object detectors inside each group.
 7. Plot detector performance against demand level as a model characteristic curve.
+
+## Object-detection pipeline commands
+
+The inference script loads the COCO 2017 and VOC 2007 validation splits through FiftyOne. It expects the driving dataset in COCO format at `../vision_datasets/driving-validation/`.
+
+Generate the class-aware object-detection evaluations for every dataset and model configured in the script:
+
+```bash
+poetry run python scripts/inference/get_predictions.py
+```
+
+Generate the class-agnostic localization evaluations for each dataset:
+
+```bash
+poetry run python scripts/evaluation/detection.py coco-2017
+poetry run python scripts/evaluation/detection.py voc-2007
+poetry run python scripts/evaluation/detection.py driving
+```
+
+Combine the evaluations into the per-image metrics table:
+
+```bash
+poetry run python scripts/analysis/get_detection_accuracy.py
+```
+
+Prepare the image-ID files used by the annotation stage:
+
+```bash
+poetry run python scripts/preparation/get_image_ids.py coco-2017
+poetry run python scripts/preparation/get_image_ids.py voc-2007
+poetry run python scripts/preparation/get_image_ids.py driving
+```

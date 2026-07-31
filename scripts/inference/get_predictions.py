@@ -4,6 +4,7 @@ import fiftyone.zoo as foz
 import sys
 import pandas as pd
 import random
+import os
 
 datasets = ["coco-2017","voc-2007","driving"]
 
@@ -71,5 +72,7 @@ for dataset_name in datasets:
 
         dataset_dict = dataset.to_dict()
 
-        with open(f'./results_{dataset_name}/{model_name}_results.json', 'w') as f:
+        output_dir = f'./outputs/object_detection/{dataset_name}'
+        os.makedirs(output_dir, exist_ok=True)
+        with open(f'{output_dir}/{model_name}_object_detection_evaluation.json', 'w') as f:
             json.dump(dataset_dict, f, indent=4)

@@ -52,13 +52,13 @@ if __name__ == '__main__':
     else:
         gt_name = "detections"
 
-    directory_path = f'./results_{dataset}'
-    files_list = list_files_in_directory(directory_path)
+    directory_path = f'./outputs/object_detection/{dataset}'
+    files_list = [file for file in list_files_in_directory(directory_path) if file.endswith("_object_detection_evaluation.json")]
     
     for file in [files_list[0]]:
         print(file)
 
-        f = open(f'results_{dataset}/' + file)
+        f = open(os.path.join(directory_path, file))
         data = json.load(f)
 
         results = get_classes(data["samples"], term, gt_name)
@@ -74,4 +74,5 @@ if __name__ == '__main__':
     plt.ylabel("Frequency")
     plt.tight_layout()
 
-    plt.savefig(f"histogram_{dataset}.pdf")
+    os.makedirs("./outputs/figures", exist_ok=True)
+    plt.savefig(f"./outputs/figures/histogram_{dataset}.pdf")

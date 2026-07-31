@@ -2,8 +2,10 @@ import pandas as pd
 import re
 import matplotlib.pyplot as plt
 import sys
+import os
 
 # Configuration
+os.makedirs("./outputs/figures", exist_ok=True)
 if len(sys.argv) < 4:
     print("Usage: python script_name.py <version> <task> <prefix>")
     sys.exit(1)
@@ -18,18 +20,18 @@ prefix = str(sys.argv[3])
 
 
 if task == "detection":
-    df = pd.read_csv("detection_difficulty.csv",dtype={'image_id': object}, usecols= ["image_id","accuracy","model"])
+    df = pd.read_csv("./outputs/object_detection/detection_difficulty.csv",dtype={'image_id': object}, usecols= ["image_id","accuracy","model"])
 elif task == "localization":
-    df = pd.read_csv("detection_difficulty.csv",dtype={'image_id': object}, usecols= ["image_id","accuracy_detection","model"])
+    df = pd.read_csv("./outputs/object_detection/detection_difficulty.csv",dtype={'image_id': object}, usecols= ["image_id","accuracy_detection","model"])
     df = df.rename(columns={"accuracy_detection":"accuracy"})
 else:
     sys.exit(1)
 
 
 if task == "localization" or task == "detection":
-    gpt_diff = pd.read_csv(f"v{version}_{task}_fewshot_dataset_gpt_difficulty.csv", dtype={'image_id': object})
+    gpt_diff = pd.read_csv(f"./outputs/annotations/v{version}_{task}_fewshot_dataset_gpt_difficulty.csv", dtype={'image_id': object})
 else:
-    gpt_diff = pd.read_csv(f"v{version}_fewshot_dataset_gpt_difficulty.csv", dtype={'image_id': object})
+    gpt_diff = pd.read_csv(f"./outputs/annotations/v{version}_fewshot_dataset_gpt_difficulty.csv", dtype={'image_id': object})
 
 gpt_diff = gpt_diff[gpt_diff['level'] != 'error']
 
@@ -121,8 +123,8 @@ plt.subplots_adjust(right=0.7)
 
 
 if task == "localization" or task == "detection":
-    plt.savefig(f"v{version}_{prefix}_{task}_fewshot_detection_scatterplot.pdf")
+    plt.savefig(f"./outputs/figures/v{version}_{prefix}_{task}_fewshot_detection_scatterplot.pdf")
 else:
-    plt.savefig(f"v{version}_fewshot_detection_scatterplot.pdf")
+    plt.savefig(f"./outputs/figures/v{version}_fewshot_detection_scatterplot.pdf")
 
 plt.show()

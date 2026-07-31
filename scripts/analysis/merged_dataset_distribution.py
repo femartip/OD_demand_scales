@@ -7,6 +7,7 @@ import numpy as np
 import sys
 
 # Configuration
+os.makedirs("./outputs/annotations", exist_ok=True)
 if len(sys.argv) < 3:
     print("Usage: python script_name.py <version> <task>")
     sys.exit(1)
@@ -19,7 +20,7 @@ task = str(sys.argv[2])
 
 MAX_SAMPLES = 800
 
-folder_path = '.'
+folder_path = './outputs/annotations'
 
 excluded_datasets = []
 
@@ -61,7 +62,7 @@ if int(version) < 4:
 print(combined_df)
 
 if task == "localization" or task == "detection":
-    combined_df.to_csv(f"v{version}_{task}_fewshot_dataset_gpt_difficulty.csv", index = False)
+    combined_df.to_csv(f"./outputs/annotations/v{version}_{task}_fewshot_dataset_gpt_difficulty.csv", index = False)
 else:
-    combined_df.to_csv(f"v{version}_fewshot_dataset_gpt_difficulty.csv", index = False)
+    combined_df.to_csv(f"./outputs/annotations/v{version}_fewshot_dataset_gpt_difficulty.csv", index = False)
 
