@@ -2,6 +2,33 @@ import json
 import sys
 import os
 
+CLASS_MAPS = {
+    "voc-2007": {
+        "aeroplane": "airplane",
+        "diningtable": "dining table",
+        "motorbike": "motorcycle",
+        "pottedplant": "potted plant",
+        "sofa": "couch",
+        "tvmonitor": "tv",
+    },
+    "driving": {
+        "biker": "bicycle",
+        "pedestrian": "person",
+        "trafficLight": "traffic light",
+        "trafficLight-Green": "traffic light",
+        "trafficLight-GreenLeft": "traffic light",
+        "trafficLight-Red": "traffic light",
+        "trafficLight-RedLeft": "traffic light",
+        "trafficLight-Yellow": "traffic light",
+        "trafficLight-YellowLeft": "traffic light",
+    },
+}
+
+
+def normalize_label(label):
+    return CLASS_MAPS.get(dataset, {}).get(label, label)
+
+
 def check_inclusion(pred_box,gt_box):
     return pred_box[0] >= gt_box[0] and pred_box[1] >= gt_box[1] and pred_box[2] <= gt_box[2] and pred_box[3] <= gt_box[3]
 
@@ -86,7 +113,7 @@ def evaluate_detection(data, predefined):
             if max_index not in boxes_covered :
                 true_positives += 1
                 boxes_covered.append(max_index)
-                if ground_truth_detections[max_index]["label"] != pred["label"]:
+                if normalize_label(ground_truth_detections[max_index]["label"]) != normalize_label(pred["label"]):
                     label_mismatch += 1
             elif crowd:
                 true_positives += 1
@@ -152,6 +179,10 @@ if __name__ == '__main__':
             data["samples"][i]['detection_tp'] = results['true_positives']
             data["samples"][i]['detection_fp'] = results['false_positives']
             data["samples"][i]['detection_fn'] = results['false_negatives']
+            if dataset in CLASS_MAPS:
+                data["samples"][i]['eval_coco_tp'] = results['true_positives'] - results['label_mismatch']
+                data["samples"][i]['eval_coco_fp'] = results['false_positives'] + results['label_mismatch']
+                data["samples"][i]['eval_coco_fn'] = results['false_negatives'] + results['label_mismatch']
  
         output_file = file.replace("_object_detection_evaluation.json", "_localization_evaluation.json")
         save_json_to_folder(data, directory_path, output_file)

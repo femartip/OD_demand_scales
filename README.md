@@ -26,7 +26,7 @@ Same rubric used for two tasks:
 Pipeline:
 1. Insert the task definition into the modified rubric.
 2. Provide either the rubric alone or the rubric plus few-shot examples.
-3. Submit the image to GPT-4V.
+3. Submit the image to the configured vision-language model.
 4. Parse the output into an integer from 1 to 5.
 5. Group images according to their predicted demand level.
 6. Measure the performance of several object detectors inside each group.
@@ -62,4 +62,70 @@ Prepare the image-ID files used by the annotation stage:
 poetry run python scripts/preparation/get_image_ids.py coco-2017
 poetry run python scripts/preparation/get_image_ids.py voc-2007
 poetry run python scripts/preparation/get_image_ids.py driving
+```
+
+
+## Local Hugging Face annotation
+
+The annotation script uses a local OpenAI-compatible `llama-server`.
+
+Hugging Face model installation:
+
+```bash
+poetry run hf download DavidAU/Qwen3.6-27B-Fable-Fusion-711-Uncensored-Heretic-NM-DAU-NEO-MAX-MTP-GGUF \
+  Qwen3.6-27B-Fable-Fus-711-UnHeretic-NM-DAU-NEO-MAX-NEO-MTP-Q6_K.gguf \
+  mmproj-F16.gguf \
+  --local-dir ../data/models/qwen3.6-27b-q6
+```
+
+Start the local vision server in a separate terminal:
+
+```bash
+llama-server \
+  -m ../data/models/qwen3.6-27b-q6/Qwen3.6-27B-Fable-Fus-711-UnHeretic-NM-DAU-NEO-MAX-NEO-MTP-Q6_K.gguf \
+  --mmproj ../data/models/qwen3.6-27b-q6/mmproj-F16.gguf \
+  -ngl 999 \
+  -c 16384 \
+  --host 127.0.0.1 \
+  --port 8080
+```
+
+Creating the image-ID files:
+
+```bash
+poetry run python scripts/preparation/get_image_ids.py coco-2017
+poetry run python scripts/preparation/get_image_ids.py voc-2007
+poetry run python scripts/preparation/get_image_ids.py driving
+```
+
+
+Run annotation:
+
+```bash
+poetry run python scripts/rubrics/llm-fewshot.py coco-2017 detection 16
+poetry run python scripts/rubrics/llm-fewshot.py voc-2007 detection 16
+poetry run python scripts/rubrics/llm-fewshot.py driving detection 16
+
+poetry run python scripts/rubrics/llm-fewshot.py coco-2017 localization 16
+poetry run python scripts/rubrics/llm-fewshot.py voc-2007 localization 16
+poetry run python scripts/rubrics/llm-fewshot.py driving localization 16
+```
+## Analysis and plots
+
+Merge all datasets:
+```bash
+poetry run python scripts/analysis/merged_dataset_distribution.py 16 detection
+poetry run python scripts/analysis/merged_dataset_distribution.py 16 localization
+```
+
+Generate overall curves:
+```bash
+poetry run python scripts/analysis/model_vs_gpt_difficulty.py 16 detection
+poetry run python scripts/analysis/model_vs_gpt_difficulty.py 16 localization
+```
+
+Per model family object curves:
+```bash
+poetry run python scripts/analysis/permodel_vs_gpt_difficulty.py 16 detection yolov8
+poetry run python scripts/analysis/permodel_vs_gpt_difficulty.py 16 localization yolov8
 ```

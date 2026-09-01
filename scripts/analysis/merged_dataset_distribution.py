@@ -18,7 +18,7 @@ version = str(sys.argv[1])
 task = str(sys.argv[2])
 
 
-MAX_SAMPLES = 800
+MAX_SAMPLES = 2000
 
 folder_path = './outputs/annotations'
 

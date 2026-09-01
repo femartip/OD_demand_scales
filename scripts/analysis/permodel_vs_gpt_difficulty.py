@@ -20,8 +20,10 @@ prefix = str(sys.argv[3])
 
 
 if task == "detection":
+    display_name = "Object Detection"
     df = pd.read_csv("./outputs/object_detection/detection_difficulty.csv",dtype={'image_id': object}, usecols= ["image_id","accuracy","model"])
 elif task == "localization":
+    display_name = "Localization"
     df = pd.read_csv("./outputs/object_detection/detection_difficulty.csv",dtype={'image_id': object}, usecols= ["image_id","accuracy_detection","model"])
     df = df.rename(columns={"accuracy_detection":"accuracy"})
 else:
@@ -75,6 +77,15 @@ if prefix == "yolo":
 else:
     model_list = filter_by_prefix(model_list,prefix)
 
+available_models = set(df["model"].unique())
+missing_models = [model for model in model_list if model not in available_models]
+if missing_models:
+    print(f"Warning: no evaluation rows found for: {', '.join(missing_models)}")
+model_list = [model for model in model_list if model in available_models]
+if not model_list:
+    print(f"No available models match prefix '{prefix}'")
+    sys.exit(1)
+
 
 color_dict = {
     "yolov5l-coco-torch": "#5fa2d5",
@@ -104,7 +115,7 @@ for model in model_list:
     grouped = temp_df.groupby('image_id', as_index=False).mean()
     final = pd.merge(grouped, gpt_diff, on='image_id')
     final = final.dropna()
-    final = final[(final['level'] >= 1) & (final['level'] <= 4)]
+    final = final[(final['level'] >= 1) & (final['level'] <= 5)]
     print(final)
 
     avg_trend = final.groupby('level')['accuracy'].mean().reset_index()
@@ -117,13 +128,14 @@ for model in model_list:
     plt.plot(avg_trend['level'], avg_trend['accuracy'], color=color_dict[model], linewidth=2, label=f'{model}',marker='o')
 
 plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
-plt.xlabel('Level')
-plt.ylabel('Accuracy')
+plt.xlabel(f'{display_name} demand level')
+plt.ylabel(f'{display_name} accuracy')
+plt.title(f'{prefix.upper()} {display_name} Accuracy by {display_name} Demand Level')
 plt.subplots_adjust(right=0.7)
 
 
 if task == "localization" or task == "detection":
-    plt.savefig(f"./outputs/figures/v{version}_{prefix}_{task}_fewshot_detection_scatterplot.pdf")
+    plt.savefig(f"./outputs/figures/v{version}_{prefix}_{task}_fewshot_accuracy_curves.pdf")
 else:
     plt.savefig(f"./outputs/figures/v{version}_fewshot_detection_scatterplot.pdf")
 

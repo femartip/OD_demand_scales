@@ -2,9 +2,9 @@ import os
 import requests
 import base64
 import csv
-import time
 import pandas as pd
 import sys
+from pathlib import Path
 
 # Configuration
 if len(sys.argv) != 4:
@@ -12,7 +12,7 @@ if len(sys.argv) != 4:
     sys.exit(1)
 
 dataset = str(sys.argv[1])
-max_samples = 50
+max_samples = int(os.environ.get("MAX_SAMPLES", 50))
 task_to_evaluate = str(sys.argv[2])
 
 if task_to_evaluate == "localization":
@@ -37,15 +37,21 @@ if version not in versions_available:
    print("Version not available")
    sys.exit(1)
 
-PREDEFINED_DATASETS = ["voc-2007", "coco-2017"]
-
-GPT4V_KEY = "YOUR_API_KEY"
-GPT4V_ENDPOINT = "YOUR API ENDPOINT"
-image_ids = pd.read_csv(f"./outputs/object_detection/images_experiment_{dataset}.csv", dtype={'image_id': object})
+MODEL_ID = "DavidAU/Qwen3.6-27B-Fable-Fusion-711-Uncensored-Heretic-NM-DAU-NEO-MAX-MTP-GGUF"
+MODEL_NAME = "qwen3.6-27b-q6"
+MODEL_ENDPOINT = os.environ.get("MODEL_ENDPOINT", "http://127.0.0.1:8080/v1/chat/completions")
+IMAGE_DIRS = {
+  "coco-2017": Path.home() / "fiftyone/coco-2017/validation/data",
+  "voc-2007": Path.home() / "fiftyone/voc-2007/validation/data",
+  "driving": Path("../vision_datasets/driving-validation"),
+}
+image_ids_path = os.environ.get("IMAGE_IDS_PATH", f"./outputs/object_detection/images_experiment_{dataset}.csv")
+image_ids = pd.read_csv(image_ids_path, dtype={'image_id': object})
 
 # check if those instances have been already labelled
-os.makedirs("./outputs/annotations", exist_ok=True)
-destination_path = f'./outputs/annotations/v{version}_{task_to_evaluate}_fewshot_labelled_images_{dataset}.csv'
+annotations_dir = Path(os.environ.get("ANNOTATIONS_DIR", "./outputs/annotations"))
+os.makedirs(annotations_dir, exist_ok=True)
+destination_path = annotations_dir / f"v{version}_{task_to_evaluate}_fewshot_labelled_images_{dataset}_{MODEL_NAME}.csv"
 labelled_prev = False
 already_labelled = []
 if os.path.isfile(destination_path):
@@ -56,14 +62,15 @@ if os.path.isfile(destination_path):
     already_labelled.append(row["image_id"])
 
 
-few_shot_1 = base64.b64encode(open("imagenes few-shot/000511_level1.jpg", 'rb').read()).decode('ascii')
-few_shot_1b = base64.b64encode(open("imagenes few-shot/000000110359_level1.jpg", 'rb').read()).decode('ascii')
-few_shot_2 = base64.b64encode(open("imagenes few-shot/000913_level2.jpg", 'rb').read()).decode('ascii')
-few_shot_2b = base64.b64encode(open("imagenes few-shot/000000065736_level2.jpg", 'rb').read()).decode('ascii')
-few_shot_3 = base64.b64encode(open("imagenes few-shot/000575_level3.jpg", 'rb').read()).decode('ascii')
-few_shot_3b = base64.b64encode(open("imagenes few-shot/000853_level3.jpg", 'rb').read()).decode('ascii')
-few_shot_4 = base64.b64encode(open("imagenes few-shot/000377_level4.jpg", 'rb').read()).decode('ascii')
-few_shot_4b = base64.b64encode(open("imagenes few-shot/000000036494_level4.jpg", 'rb').read()).decode('ascii')
+few_shot_dir = Path("data/prompts/imagenes")
+few_shot_1 = base64.b64encode(open(few_shot_dir / "000511_level1.jpg", 'rb').read()).decode('ascii')
+few_shot_1b = base64.b64encode(open(few_shot_dir / "000000110359_level1.jpg", 'rb').read()).decode('ascii')
+few_shot_2 = base64.b64encode(open(few_shot_dir / "000913_level2.jpg", 'rb').read()).decode('ascii')
+few_shot_2b = base64.b64encode(open(few_shot_dir / "000000065736_level2.jpg", 'rb').read()).decode('ascii')
+few_shot_3 = base64.b64encode(open(few_shot_dir / "000575_level3.jpg", 'rb').read()).decode('ascii')
+few_shot_3b = base64.b64encode(open(few_shot_dir / "000853_level3.jpg", 'rb').read()).decode('ascii')
+few_shot_4 = base64.b64encode(open(few_shot_dir / "000377_level4.jpg", 'rb').read()).decode('ascii')
+few_shot_4b = base64.b64encode(open(few_shot_dir / "000000036494_level4.jpg", 'rb').read()).decode('ascii')
 
 
 with open(destination_path, 'a', newline='', encoding='utf-8') as CSV_file:
@@ -77,7 +84,6 @@ with open(destination_path, 'a', newline='', encoding='utf-8') as CSV_file:
         if i == max_samples:
            print("Max Samples reached")
            break
-        wrong = 0
         image_id = str(row["image_id"])
         print(image_id)
 
@@ -85,21 +91,16 @@ with open(destination_path, 'a', newline='', encoding='utf-8') as CSV_file:
           print("Labelled!")
           continue
 
-        if dataset in PREDEFINED_DATASETS:
-          IMAGE_PATH = "" # Path to the images
-        else:
-          IMAGE_PATH = "" # Path to the images
+        IMAGE_PATH = next(IMAGE_DIRS[dataset].glob(f"{image_id}.*"))
         encoded_image = base64.b64encode(open(IMAGE_PATH, 'rb').read()).decode('ascii')
-        headers = {
-            "Content-Type": "application/json",
-            "api-key": GPT4V_KEY,
-        }
+        headers = {"Content-Type": "application/json"}
 
         if version == 16:
             rubric = "Below you have a detailed description of each level's requirements. Read them carefully and select the most suitable one.\n\nLevel 5. At this level, the system requires capabilities to process and interpret a complex scene in real-time, recognize and categorize objects with near-perfect accuracy, or understand context with nuanced detail. It might require constructing 3D interpretations from monocular 2D vision using background knowledge or handling deformable objects with a very high degree of robustness or extraordinary precision. It may contain too many objects at the same time or degrees of blur or lighting that are extremely hard, with objects that are very domain-specific or very similar between them.\n\nLevel 4. At this level, the system needs vision to succeed at everyday tasks humans face, reliably interpreting the scene. Robustness is needed so that the scale, the orientation, or the environment do not affect accuracy. Scenes can be very complex, including many objects, which might be partially hidden or overlapped. Images have a resolution, uneven lighting, or blur in such a way that makes perception very hard. Even if the scene might seem simple, objects are positioned at an unusual angle or captured from a strange perspective, making recognition difficult.\n\nLevel 3. At this level, interpreting the image requires precise analysis, and reliable pattern recognition to identify and categorize objects accurately. This level does not include complex scenes with many details, poor lighting conditions, or atypical objects or event types, but slight blur or medium resolution is accepted, or heavy distortions and noise in parts that do not affect the objects to be recognized, or slight changes in appearance or perspective from the usual ones.\n\nLevel 2. This level requires the respondents to have basic capabilities, there are no more than a couple of objects in the scene, and they are presented in usual presentations in appearance, scale, or context. Images may include a close-up of an object, or they have an appropriate resolution with minimal blur or have good lighting with minor shadows or occlusions affecting the relevant objects in the image.\n\nLevel 1. This level includes simple vision tasks. They require distinguishing between common shapes, detecting color, or identifying large, distinct objects within a limited scope and clear backgrounds, with no occlusion. Images at this level don't require understanding context or making nuanced distinctions between objects or features. The resolution is sufficient for the size of the objects in question, and the image does not have significant blur, occlusions, or bad lighting conditions affecting the recognition task.\n\n"
 
         # Payload for the request
         payload = {
+        "model": MODEL_ID,
         "messages": [
             {
             "role": "system",
@@ -217,32 +218,11 @@ with open(destination_path, 'a', newline='', encoding='utf-8') as CSV_file:
         ],
         "temperature": 0,
         "top_p": 0.95,
-        "max_tokens": 800
+        "chat_template_kwargs": {"enable_thinking": True}
         }
-        # Send request
-        ok = False
-        fault = False
-        while not ok and not fault:
-            try:
-                response = requests.post(GPT4V_ENDPOINT, headers=headers, json=payload)
-                response.raise_for_status()  
-                ok = True
-            except Exception as ex:
-                print("error", ex)
-                print("too much request, sleep for 25 seconds")
-                time.sleep(25)
-                wrong += 1
-                if wrong > 1:
-                  fault = True
-                  print("Image Problem")
-                  
-        if not fault:
-          final_text = response.json()['choices'][0]["message"]["content"]
-        else:
-          final_text = "error"       
-        
+        response = requests.post(MODEL_ENDPOINT, headers=headers, json=payload, timeout=600)
+        response.raise_for_status()
+        final_text = response.json()['choices'][0]["message"]["content"].strip()
         writer_CSV.writerow([image_id, final_text])
-        
-        time.sleep(25)
         
 

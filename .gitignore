@@ -1,5 +1,6 @@
 /artifacts/runs/
-/output/object_detection/
+outputs/object_detection
+*.sh
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
