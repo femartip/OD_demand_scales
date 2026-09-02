@@ -9,6 +9,12 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--skip-existing",action="store_true",help="Skip model/dataset evaluations whose output JSON already exists",)
+parser.add_argument(
+    "--transformer-confidence-threshold",
+    type=float,
+    default=0.5,
+    help="Confidence threshold for Hugging Face transformer detectors",
+)
 args = parser.parse_args()
 
 datasets = ["coco-2017","voc-2007","driving"]
@@ -23,18 +29,10 @@ for dataset_name in datasets:
 
     if predefined:
         ground_truth = "ground_truth"
-        dataset = foz.load_zoo_dataset(
-            dataset_name,
-            split="validation",
-        )
+        dataset = foz.load_zoo_dataset(dataset_name,split="validation",)
     else:
         ground_truth = "detections"
-        dataset = fo.Dataset.from_dir(
-            dataset_type=fo.types.COCODetectionDataset,
-            data_path=f"../vision_datasets/{dataset_name}-validation",
-            labels_path=f"../vision_datasets/{dataset_name}-validation/_annotations.coco.json",
-            include_id=True,
-        )
+        dataset = fo.Dataset.from_dir(dataset_type=fo.types.COCODetectionDataset,data_path=f"../vision_datasets/{dataset_name}-validation",labels_path=f"../vision_datasets/{dataset_name}-validation/_annotations.coco.json",include_id=True,)
 
 
 
@@ -92,12 +90,15 @@ for dataset_name in datasets:
             continue
 
         model = foz.load_zoo_model(model_name)
-        dataset.apply_model(model, label_field="predictions")
+        transformer_model = (model_name.startswith(("dfine-", "rtdetr-v2-")) or model_name == "detection-transformer-torch")
+        confidence_thresh = (args.transformer_confidence_threshold if transformer_model else None)
+        if confidence_thresh is not None:
+            print(f"Using confidence threshold {confidence_thresh}")
 
+        dataset.apply_model(model,label_field="predictions",confidence_thresh=confidence_thresh,batch_size=8,num_workers=12,pin_memory=True,)
 
-
-        results = dataset.evaluate_detections(pred_field="predictions",gt_field=ground_truth,eval_key="eval_coco",compute_mAP=False,)
-
+        # Dont need to evaluate here, this is done on the evaluation/detection.py
+        #results = dataset.evaluate_detections(pred_field="predictions",gt_field=ground_truth,eval_key="eval_coco",compute_mAP=False,)
 
         dataset_dict = dataset.to_dict()
 

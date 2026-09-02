@@ -36,7 +36,7 @@ Combining datasets is intentional: the pooled population is meant to cover a bro
 
 ## Object-detection pipeline commands
 
-The inference script loads the COCO 2017 and VOC 2007 validation splits through FiftyOne. It expects the driving dataset in COCO format at `../vision_datasets/driving-validation/`. Prediction-confidence filtering uses each model's default so that inference remains tailored to the model. Detection and localization matching use a common IoU threshold of 0.5; this is a matching threshold, not a prediction-confidence threshold.
+The inference script loads the COCO 2017 and VOC 2007 validation splits through FiftyOne. It expects the driving dataset in COCO format at `../vision_datasets/driving-validation/`. Prediction-confidence filtering uses each model's native default, except for the Hugging Face-backed D-FINE, RT-DETR-v2, and DETR models, whose FiftyOne wrapper otherwise retains every decoder query. These models use a confidence threshold of 0.5 by default, configurable with `--transformer-confidence-threshold`. Detection and localization matching use a common IoU threshold of 0.5; this is a matching threshold, not a prediction-confidence threshold.
 
 The configured closed-set panel contains 40 models: five YOLOv5 sizes, five YOLOv8 sizes, two YOLOv9 sizes, five YOLOv10 sizes, five YOLO11 sizes, five D-FINE sizes, five RF-DETR sizes, five RT-DETR/RT-DETR-v2 variants, DETR, Faster R-CNN, and RetinaNet. Open-vocabulary detectors are not included in this panel.
 
