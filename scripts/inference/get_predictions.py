@@ -84,7 +84,7 @@ for dataset_name in datasets:
         print(model_name)
 
         output_dir = f'./outputs/object_detection/{dataset_name}'
-        output_path = f'{output_dir}/{model_name}_object_detection_evaluation.json'
+        output_path = f'{output_dir}/{model_name}_predictions.json'
         if args.skip_existing and os.path.isfile(output_path):
             print(f"Skipping existing result: {output_path}")
             continue

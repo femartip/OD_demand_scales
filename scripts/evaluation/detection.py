@@ -2,6 +2,7 @@ import json
 import os
 import sys
 import uuid
+import argparse
 
 import fiftyone as fo
 
@@ -94,20 +95,30 @@ def save_json_to_folder(data, folder_path, file_name):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python script_name.py <dataset>")
-        sys.exit(1)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("dataset")
+    parser.add_argument(
+        "--skip-existing",
+        action="store_true",
+        help="Skip predictions whose combined evaluation JSON already exists",
+    )
+    args = parser.parse_args()
 
-    dataset_name = str(sys.argv[1])
+    dataset_name = args.dataset
     ground_truth_field = ("ground_truth" if dataset_name in {"coco-2017", "voc-2007"} else "detections")
     directory_path = f"./outputs/object_detection/{dataset_name}"
-    files_list = [file_name for file_name in list_files_in_directory(directory_path) if file_name.endswith("_object_detection_evaluation.json")]
+    files_list = [file_name for file_name in list_files_in_directory(directory_path) if file_name.endswith("_predictions.json")]
 
     for file_name in files_list:
+        output_file = file_name.replace("_predictions.json", "_detection_and_localization_evaluation.json")
+        output_path = os.path.join(directory_path, output_file)
+        if args.skip_existing and os.path.isfile(output_path):
+            print(f"Skipping existing result: {output_path}")
+            continue
+
         with open(os.path.join(directory_path, file_name)) as json_file:
             data = json.load(json_file)
 
         evaluate_with_fiftyone(data, dataset_name, ground_truth_field)
 
-        output_file = file_name.replace("_object_detection_evaluation.json", "_localization_evaluation.json",)
         save_json_to_folder(data, directory_path, output_file)

@@ -8,7 +8,7 @@ def get_all_file_paths(folder):
 
     for root, _, files in os.walk(folder):
         for file in files:
-            if file.endswith("_localization_evaluation.json"):
+            if file.endswith("_detection_and_localization_evaluation.json"):
                 file_path = os.path.join(root, file)
                 file_paths.append(file_path)
 
@@ -40,7 +40,7 @@ for dataset in all_paths:
                 temp_df.loc[i, "fp_detection"] = image['detection_fp']
                 temp_df.loc[i, "fn_detection"] = image['detection_fn']
                 
-            temp_df["model"] = os.path.basename(file_path).replace("_localization_evaluation.json", "")
+            temp_df["model"] = os.path.basename(file_path).replace("_detection_and_localization_evaluation.json", "")
             temp_df["dataset"] = dataset
             df = pd.concat([df, temp_df])
 

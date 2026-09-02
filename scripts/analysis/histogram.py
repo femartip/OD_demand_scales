@@ -53,7 +53,7 @@ if __name__ == '__main__':
         gt_name = "detections"
 
     directory_path = f'./outputs/object_detection/{dataset}'
-    files_list = [file for file in list_files_in_directory(directory_path) if file.endswith("_object_detection_evaluation.json")]
+    files_list = [file for file in list_files_in_directory(directory_path) if file.endswith("_predictions.json")]
     
     for file in [files_list[0]]:
         print(file)

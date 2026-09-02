@@ -40,7 +40,7 @@ The inference script loads the COCO 2017 and VOC 2007 validation splits through 
 
 The configured closed-set panel contains 40 models: five YOLOv5 sizes, five YOLOv8 sizes, two YOLOv9 sizes, five YOLOv10 sizes, five YOLO11 sizes, five D-FINE sizes, five RF-DETR sizes, five RT-DETR/RT-DETR-v2 variants, DETR, Faster R-CNN, and RetinaNet. Open-vocabulary detectors are not included in this panel.
 
-Generate the class-aware object-detection evaluations for every dataset and model configured in the script:
+Generate raw ground-truth and prediction files named `<model>_predictions.json` for every dataset and model configured in the script:
 
 ```bash
 poetry run python scripts/inference/get_predictions.py
@@ -52,12 +52,20 @@ By default, inference overwrites existing model/dataset result files. Resume an 
 poetry run python scripts/inference/get_predictions.py --skip-existing
 ```
 
-Generate the class-agnostic localization evaluations for each dataset:
+Generate both the class-aware detection and class-agnostic localization evaluations for each dataset. Each output is named `<model>_detection_and_localization_evaluation.json`:
 
 ```bash
 poetry run python scripts/evaluation/detection.py coco-2017
 poetry run python scripts/evaluation/detection.py voc-2007
 poetry run python scripts/evaluation/detection.py driving
+```
+
+By default, these commands overwrite existing combined evaluations. Resume an interrupted evaluation run with:
+
+```bash
+poetry run python scripts/evaluation/detection.py coco-2017 --skip-existing
+poetry run python scripts/evaluation/detection.py voc-2007 --skip-existing
+poetry run python scripts/evaluation/detection.py driving --skip-existing
 ```
 
 Combine the evaluations into the per-image metrics table:
