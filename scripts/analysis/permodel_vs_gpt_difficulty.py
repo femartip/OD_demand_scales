@@ -21,10 +21,10 @@ prefix = str(sys.argv[3])
 
 if task == "detection":
     display_name = "Object Detection"
-    df = pd.read_csv("./outputs/object_detection/detection_difficulty.csv",dtype={'image_id': object}, usecols= ["image_id","accuracy","model"])
+    df = pd.read_csv("./outputs/object_detection/detection_difficulty.csv", dtype={'image_id': object},usecols=["dataset", "image_id", "accuracy", "model"],)
 elif task == "localization":
     display_name = "Localization"
-    df = pd.read_csv("./outputs/object_detection/detection_difficulty.csv",dtype={'image_id': object}, usecols= ["image_id","accuracy_detection","model"])
+    df = pd.read_csv("./outputs/object_detection/detection_difficulty.csv", dtype={'image_id': object},usecols=["dataset", "image_id", "accuracy_detection", "model"],)
     df = df.rename(columns={"accuracy_detection":"accuracy"})
 else:
     sys.exit(1)
@@ -49,28 +49,55 @@ def filter_by_prefix(input_list, prefix):
 
 
 model_list = [
-        "yolov5n-coco-torch",
-        "yolov5s-coco-torch",
-        "yolov5m-coco-torch",
-        "yolov5l-coco-torch",
-        "yolov5x-coco-torch",
-        "yolov8n-coco-torch",
-        "yolov8s-coco-torch",
-        "yolov8m-coco-torch",
-        "yolov8l-coco-torch",
-        "yolov8x-coco-torch",
-        "yolov9c-coco-torch",
-        "yolov9e-coco-torch",
-        "yolo-nas-torch",
-        "zero-shot-detection-transformer-torch",
-        "detection-transformer-torch",
-        "faster-rcnn-resnet50-fpn-coco-torch",
-        "retinanet-resnet50-fpn-coco-torch",
+    "yolov5n-coco-torch",
+    "yolov5s-coco-torch",
+    "yolov5m-coco-torch",
+    "yolov5l-coco-torch",
+    "yolov5x-coco-torch",
+    "yolov8n-coco-torch",
+    "yolov8s-coco-torch",
+    "yolov8m-coco-torch",
+    "yolov8l-coco-torch",
+    "yolov8x-coco-torch",
+    "yolov9c-coco-torch",
+    "yolov9e-coco-torch",
+    "yolov10n-coco-torch",
+    "yolov10s-coco-torch",
+    "yolov10m-coco-torch",
+    "yolov10l-coco-torch",
+    "yolov10x-coco-torch",
+    "yolo11n-coco-torch",
+    "yolo11s-coco-torch",
+    "yolo11m-coco-torch",
+    "yolo11l-coco-torch",
+    "yolo11x-coco-torch",
+    "dfine-nano-coco-torch",
+    "dfine-small-coco-torch",
+    "dfine-medium-coco-torch",
+    "dfine-large-coco-torch",
+    "dfine-xlarge-coco-torch",
+    "rfdetr-nano-coco-torch",
+    "rfdetr-small-coco-torch",
+    "rfdetr-medium-coco-torch",
+    "rfdetr-base-coco-torch",
+    "rfdetr-large-coco-torch",
+    "rtdetr-l-coco-torch",
+    "rtdetr-x-coco-torch",
+    "rtdetr-v2-s-coco-torch",
+    "rtdetr-v2-m-coco-torch",
+    "rtdetr-v2-l-coco-torch",
+    "detection-transformer-torch",
+    "faster-rcnn-resnet50-fpn-coco-torch",
+    "retinanet-resnet50-fpn-coco-torch",
     ]
 
-large_models = ["yolov5x-coco-torch",
-        "yolov8x-coco-torch",
-        "yolov9e-coco-torch"]
+large_models = [
+    "yolov5x-coco-torch",
+    "yolov8x-coco-torch",
+    "yolov9e-coco-torch",
+    "yolov10x-coco-torch",
+    "yolo11x-coco-torch",
+]
 
 if prefix == "yolo":
     model_list = large_models
@@ -100,11 +127,9 @@ color_dict = {
     "yolov8x-coco-torch": "#054a29",
     "yolov9c-coco-torch": "#ffbb78",
     "yolov9e-coco-torch": "#ff7f0e",
-    "zero-shot-detection-transformer-torch": "#9467bd",
     "detection-transformer-torch": "#ff9896",
     "faster-rcnn-resnet50-fpn-coco-torch": "#7f7f7f",
     "retinanet-resnet50-fpn-coco-torch": "#c5b0d5",
-    "yolo-nas-torch": "#d62728"
 }
 
 plt.figure(figsize=(11, 6))
@@ -112,8 +137,8 @@ plt.figure(figsize=(11, 6))
 for model in model_list:
     temp_df = df[df["model"] == model]
     del temp_df["model"]
-    grouped = temp_df.groupby('image_id', as_index=False).mean()
-    final = pd.merge(grouped, gpt_diff, on='image_id')
+    grouped = temp_df.groupby(['dataset', 'image_id'], as_index=False).mean()
+    final = pd.merge(grouped, gpt_diff, on=['dataset', 'image_id'])
     final = final.dropna()
     final = final[(final['level'] >= 1) & (final['level'] <= 5)]
     print(final)
@@ -125,7 +150,7 @@ for model in model_list:
 
     print(avg_trend)
 
-    plt.plot(avg_trend['level'], avg_trend['accuracy'], color=color_dict[model], linewidth=2, label=f'{model}',marker='o')
+    plt.plot(avg_trend['level'], avg_trend['accuracy'], color=color_dict.get(model), linewidth=2, label=f'{model}',marker='o')
 
 plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
 plt.xlabel(f'{display_name} demand level')

@@ -17,7 +17,7 @@ Based on OECD vision capability scale:
 
 The work combines it into a single image-demand scale. Where it is rephrased to focus con the capability required for the instance, focusing on image quality, where aplications are removed. 
 
-Files data/prompts/few_shot_prompt_1dim_rubric.txt and data/prompts/one_shot_prompt_1dim_rubric.txt contain the prompts used, data/prompts/images contains the example images for the few shot prompt. 
+The active few-shot prompt is stored in `data/prompts/few_shot_prompt_1dim_rubric.txt`, and `data/prompts/images` contains its example images. The one-shot prompt file is retained as a reference artifact.
 
 Same rubric used for two tasks:
 - Localisation, the prompt defines the task as determining object positions using tight rectangular bounding boxes.
@@ -32,14 +32,24 @@ Pipeline:
 6. Measure the performance of several object detectors inside each group.
 7. Plot detector performance against demand level as a model characteristic curve.
 
+Combining datasets is intentional: the pooled population is meant to cover a broad range of demands using easy and difficult images from different datasets. Demand level may nevertheless correlate with dataset or domain, so a pooled curve can reflect both increasing visual demand and changes in dataset composition across levels. Because the included image domains are related, this is expected to be a gradual composition shift rather than a complete domain change, but it remains an interpretation caveat. Dataset-specific analyses can be reported as diagnostics alongside the primary pooled curves.
+
 ## Object-detection pipeline commands
 
-The inference script loads the COCO 2017 and VOC 2007 validation splits through FiftyOne. It expects the driving dataset in COCO format at `../vision_datasets/driving-validation/`.
+The inference script loads the COCO 2017 and VOC 2007 validation splits through FiftyOne. It expects the driving dataset in COCO format at `../vision_datasets/driving-validation/`. Prediction-confidence filtering uses each model's default so that inference remains tailored to the model. Detection and localization matching use a common IoU threshold of 0.5; this is a matching threshold, not a prediction-confidence threshold.
+
+The configured closed-set panel contains 40 models: five YOLOv5 sizes, five YOLOv8 sizes, two YOLOv9 sizes, five YOLOv10 sizes, five YOLO11 sizes, five D-FINE sizes, five RF-DETR sizes, five RT-DETR/RT-DETR-v2 variants, DETR, Faster R-CNN, and RetinaNet. Open-vocabulary detectors are not included in this panel.
 
 Generate the class-aware object-detection evaluations for every dataset and model configured in the script:
 
 ```bash
 poetry run python scripts/inference/get_predictions.py
+```
+
+By default, inference overwrites existing model/dataset result files. Resume an interrupted run without recomputing completed outputs with:
+
+```bash
+poetry run python scripts/inference/get_predictions.py --skip-existing
 ```
 
 Generate the class-agnostic localization evaluations for each dataset:
@@ -113,6 +123,9 @@ poetry run python scripts/rubrics/llm-fewshot.py driving localization 16
 ## Analysis and plots
 
 Merge all datasets:
+
+The merge retains every available annotation and records the source dataset, so later analysis identifies images by both dataset and image ID.
+
 ```bash
 poetry run python scripts/analysis/merged_dataset_distribution.py 16 detection
 poetry run python scripts/analysis/merged_dataset_distribution.py 16 localization

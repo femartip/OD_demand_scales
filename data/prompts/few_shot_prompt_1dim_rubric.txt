@@ -1,20 +1,34 @@
-I will frst give you a few examples to illustrate it (as few-shot learning). Then you will have to determine the level of the new image. Please *only* answer giving a natural number between 1 (very easy [TASK] problem) and 5 (very difcult [TASK] problem) as the level you think better represents the [TASK] demands of the image.
+You are going to score the level of [TASK] [1, 2, 3, 4, 5] required to interpret the image you will be shown. [TASK_DEFINITION]. 1 represents very easy images and 5 represents very difficult images.
 
-[EXAMPLE IMAGE LEVEL 2]
+Below you have a detailed description of each level's requirements. Read them carefully and select the most suitable one.
+
+Level 5. At this level, the system requires capabilities to process and interpret a complex scene in real-time, recognize and categorize objects with near-perfect accuracy, or understand context with nuanced detail. It might require constructing 3D interpretations from monocular 2D vision using background knowledge or handling deformable objects with a very high degree of robustness or extraordinary precision. It may contain too many objects at the same time or degrees of blur or lighting that are extremely hard, with objects that are very domain-specific or very similar between them.
+
+Level 4. At this level, the system needs vision to succeed at everyday tasks humans face, reliably interpreting the scene. Robustness is needed so that the scale, the orientation, or the environment do not affect accuracy. Scenes can be very complex, including many objects, which might be partially hidden or overlapped. Images have a resolution, uneven lighting, or blur in such a way that makes perception very hard. Even if the scene might seem simple, objects are positioned at an unusual angle or captured from a strange perspective, making recognition difficult.
+
+Level 3. At this level, interpreting the image requires precise analysis, and reliable pattern recognition to identify and categorize objects accurately. This level does not include complex scenes with many details, poor lighting conditions, or atypical objects or event types, but slight blur or medium resolution is accepted, or heavy distortions and noise in parts that do not affect the objects to be recognized, or slight changes in appearance or perspective from the usual ones.
+
+Level 2. This level requires the respondents to have basic capabilities, there are no more than a couple of objects in the scene, and they are presented in usual presentations in appearance, scale, or context. Images may include a close-up of an object, or they have an appropriate resolution with minimal blur or have good lighting with minor shadows or occlusions affecting the relevant objects in the image.
+
+Level 1. This level includes simple vision tasks. They require distinguishing between common shapes, detecting color, or identifying large, distinct objects within a limited scope and clear backgrounds, with no occlusion. Images at this level don't require understanding context or making nuanced distinctions between objects or features. The resolution is sufficient for the size of the objects in question, and the image does not have significant blur, occlusions, or bad lighting conditions affecting the recognition task.
+
+I will first give you a few examples to illustrate it (as few-shot learning). Then you will have to determine the level of the new image. Please *only* answer giving a natural number between 1 (very easy [TASK] problem) and 5 (very difficult [TASK] problem) as the level you think better represents the [TASK] demands of the image.
+
+[IMAGE:000913_level2.jpg]
 Level: 2
-[EXAMPLE IMAGE LEVEL 4]
+[IMAGE:000377_level4.jpg]
 Level: 4
-[EXAMPLE IMAGE LEVEL 3]
+[IMAGE:000575_level3.jpg]
 Level: 3
-[EXAMPLE IMAGE LEVEL 1]
+[IMAGE:000511_level1.jpg]
 Level: 1
-[EXAMPLE IMAGE LEVEL 3]
+[IMAGE:000853_level3.jpg]
 Level: 3
-[EXAMPLE IMAGE LEVEL 2]
+[IMAGE:000000065736_level2.jpg]
 Level: 2
-[EXAMPLE IMAGE LEVEL 1]
+[IMAGE:000000110359_level1.jpg]
 Level: 1
-[EXAMPLE IMAGE LEVEL 4]
+[IMAGE:000000036494_level4.jpg]
 Level: 4
-[IMAGE]
+[TARGET_IMAGE]
 Level:

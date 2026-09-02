@@ -28,7 +28,7 @@ else:
     print("Task must be 'localization' or 'detection'")
     sys.exit(1)
 
-df = pd.read_csv("./outputs/object_detection/detection_difficulty.csv",dtype={'image_id': object}, usecols= ["image_id", metric])
+df = pd.read_csv("./outputs/object_detection/detection_difficulty.csv", dtype={'image_id': object}, usecols=["dataset", "image_id", metric],)
 
 if task == "localization" or task == "detection":
     gpt_diff = pd.read_csv(f"./outputs/annotations/v{version}_{task}_fewshot_dataset_gpt_difficulty.csv", dtype={'image_id': object})
@@ -57,10 +57,10 @@ plt.title(f'{display_name} Demand-Level Distribution')
 plt.savefig(f"./outputs/figures/v{version}_{task}_level_distribution.pdf")
 
 
-grouped = df.groupby('image_id', as_index=False).mean()
+grouped = df.groupby(['dataset', 'image_id'], as_index=False).mean()
 print(grouped)
 
-final = pd.merge(grouped, gpt_diff, on='image_id')
+final = pd.merge(grouped, gpt_diff, on=['dataset', 'image_id'])
 final = final.dropna()
 final = final[(final['level'] >= 1) & (final['level'] <= 5)]
 

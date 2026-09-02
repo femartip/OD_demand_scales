@@ -1,7 +1,8 @@
 /artifacts/runs/
 outputs/object_detection
 *.sh
-
+/outputs/logs
+.vscode
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
