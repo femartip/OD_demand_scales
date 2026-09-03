@@ -6,16 +6,14 @@ import os
 
 # Configuration
 os.makedirs("./outputs/figures", exist_ok=True)
-if len(sys.argv) < 4:
-    print("Usage: python script_name.py <version> <task> <prefix>")
+if len(sys.argv) != 3:
+    print("Usage: python script_name.py <version> <task>")
     sys.exit(1)
 
 
 version = str(sys.argv[1])
 
 task = str(sys.argv[2])
-
-prefix = str(sys.argv[3])
 
 
 
@@ -44,74 +42,35 @@ except TypeError:
 
 print(gpt_diff["level"].value_counts())
 
-def filter_by_prefix(input_list, prefix):
-    return [element for element in input_list if element.startswith(prefix)]
+model_families = {
+    "yolov5": [f"yolov5{size}-coco-torch" for size in ("n", "s", "m", "l", "x")],
+    "yolov8": [f"yolov8{size}-coco-torch" for size in ("n", "s", "m", "l", "x")],
+    "yolov9": [f"yolov9{size}-coco-torch" for size in ("c", "e")],
+    "yolov10": [f"yolov10{size}-coco-torch" for size in ("n", "s", "m", "l", "x")],
+    "yolo11": [f"yolo11{size}-coco-torch" for size in ("n", "s", "m", "l", "x")],
+    "dfine": [f"dfine-{size}-coco-torch" for size in ("nano", "small", "medium", "large", "xlarge")],
+    "rfdetr": [f"rfdetr-{size}-coco-torch" for size in ("nano", "small", "medium", "base", "large")],
+    "rtdetr": [f"rtdetr-{size}-coco-torch" for size in ("l", "x")],
+    "rtdetr-v2": [f"rtdetr-v2-{size}-coco-torch" for size in ("s", "m", "l")],
+    "detr": ["detection-transformer-torch"],
+    "faster-rcnn": ["faster-rcnn-resnet50-fpn-coco-torch"],
+    "retinanet": ["retinanet-resnet50-fpn-coco-torch"],
+}
 
-
-model_list = [
-    "yolov5n-coco-torch",
-    "yolov5s-coco-torch",
-    "yolov5m-coco-torch",
-    "yolov5l-coco-torch",
-    "yolov5x-coco-torch",
-    "yolov8n-coco-torch",
-    "yolov8s-coco-torch",
-    "yolov8m-coco-torch",
-    "yolov8l-coco-torch",
-    "yolov8x-coco-torch",
-    "yolov9c-coco-torch",
-    "yolov9e-coco-torch",
-    "yolov10n-coco-torch",
-    "yolov10s-coco-torch",
-    "yolov10m-coco-torch",
-    "yolov10l-coco-torch",
-    "yolov10x-coco-torch",
-    "yolo11n-coco-torch",
-    "yolo11s-coco-torch",
-    "yolo11m-coco-torch",
-    "yolo11l-coco-torch",
-    "yolo11x-coco-torch",
-    "dfine-nano-coco-torch",
-    "dfine-small-coco-torch",
-    "dfine-medium-coco-torch",
-    "dfine-large-coco-torch",
-    "dfine-xlarge-coco-torch",
-    "rfdetr-nano-coco-torch",
-    "rfdetr-small-coco-torch",
-    "rfdetr-medium-coco-torch",
-    "rfdetr-base-coco-torch",
-    "rfdetr-large-coco-torch",
-    "rtdetr-l-coco-torch",
-    "rtdetr-x-coco-torch",
-    "rtdetr-v2-s-coco-torch",
-    "rtdetr-v2-m-coco-torch",
-    "rtdetr-v2-l-coco-torch",
-    "detection-transformer-torch",
-    "faster-rcnn-resnet50-fpn-coco-torch",
-    "retinanet-resnet50-fpn-coco-torch",
-    ]
-
-large_models = [
-    "yolov5x-coco-torch",
-    "yolov8x-coco-torch",
-    "yolov9e-coco-torch",
-    "yolov10x-coco-torch",
-    "yolo11x-coco-torch",
-]
-
-if prefix == "yolo":
-    model_list = large_models
-else:
-    model_list = filter_by_prefix(model_list,prefix)
-
-available_models = set(df["model"].unique())
-missing_models = [model for model in model_list if model not in available_models]
-if missing_models:
-    print(f"Warning: no evaluation rows found for: {', '.join(missing_models)}")
-model_list = [model for model in model_list if model in available_models]
-if not model_list:
-    print(f"No available models match prefix '{prefix}'")
-    sys.exit(1)
+family_display_names = {
+    "yolov5": "YOLOv5",
+    "yolov8": "YOLOv8",
+    "yolov9": "YOLOv9",
+    "yolov10": "YOLOv10",
+    "yolo11": "YOLO11",
+    "dfine": "D-FINE",
+    "rfdetr": "RF-DETR",
+    "rtdetr": "RT-DETR",
+    "rtdetr-v2": "RT-DETRv2",
+    "detr": "DETR",
+    "faster-rcnn": "Faster R-CNN",
+    "retinanet": "RetinaNet",
+}
 
 
 color_dict = {
@@ -132,36 +91,37 @@ color_dict = {
     "retinanet-resnet50-fpn-coco-torch": "#c5b0d5",
 }
 
-plt.figure(figsize=(11, 6))
+available_models = set(df["model"].unique())
 
-for model in model_list:
-    temp_df = df[df["model"] == model]
-    del temp_df["model"]
-    grouped = temp_df.groupby(['dataset', 'image_id'], as_index=False).mean()
-    final = pd.merge(grouped, gpt_diff, on=['dataset', 'image_id'])
-    final = final.dropna()
-    final = final[(final['level'] >= 1) & (final['level'] <= 5)]
-    print(final)
+for family, family_models in model_families.items():
+    missing_models = [model for model in family_models if model not in available_models]
+    if missing_models:
+        print(f"Warning: no evaluation rows found for: {', '.join(missing_models)}")
+    models_to_plot = [model for model in family_models if model in available_models]
+    if not models_to_plot:
+        print(f"Skipping {family_display_names[family]}: no evaluation rows found")
+        continue
 
-    avg_trend = final.groupby('level')['accuracy'].mean().reset_index()
+    plt.figure(figsize=(11, 6))
 
-    avg_trend['level'] = avg_trend['level'].astype(str)
+    for model in models_to_plot:
+        temp_df = df[df["model"] == model]
+        del temp_df["model"]
+        grouped = temp_df.groupby(['dataset', 'image_id'], as_index=False).mean()
+        final = pd.merge(grouped, gpt_diff, on=['dataset', 'image_id'])
+        final = final.dropna()
+        final = final[(final['level'] >= 1) & (final['level'] <= 5)]
 
+        avg_trend = final.groupby('level')['accuracy'].mean().reset_index()
+        avg_trend['level'] = avg_trend['level'].astype(str)
+        print(f"{family_display_names[family]} / {model}\n{avg_trend}")
 
-    print(avg_trend)
+        plt.plot(avg_trend['level'], avg_trend['accuracy'], color=color_dict.get(model), linewidth=2, label=f'{model}',marker='o')
 
-    plt.plot(avg_trend['level'], avg_trend['accuracy'], color=color_dict.get(model), linewidth=2, label=f'{model}',marker='o')
-
-plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
-plt.xlabel(f'{display_name} demand level')
-plt.ylabel(f'{display_name} accuracy')
-plt.title(f'{prefix.upper()} {display_name} Accuracy by {display_name} Demand Level')
-plt.subplots_adjust(right=0.7)
-
-
-if task == "localization" or task == "detection":
-    plt.savefig(f"./outputs/figures/v{version}_{prefix}_{task}_fewshot_accuracy_curves.pdf")
-else:
-    plt.savefig(f"./outputs/figures/v{version}_fewshot_detection_scatterplot.pdf")
-
-plt.show()
+    plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
+    plt.xlabel(f'{display_name} demand level')
+    plt.ylabel(f'{display_name} accuracy')
+    plt.title(f'{family_display_names[family]} {display_name} Accuracy by {display_name} Demand Level')
+    plt.subplots_adjust(right=0.7)
+    plt.savefig(f"./outputs/figures/v{version}_{family}_{task}_fewshot_accuracy_curves.pdf")
+    plt.close()

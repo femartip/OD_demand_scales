@@ -52,3 +52,4 @@ df = df.fillna(1)
 
 os.makedirs("./outputs/object_detection", exist_ok=True)
 df.to_csv("./outputs/object_detection/detection_difficulty.csv", index = False)
+print(f"Merged all object detection results to ./outputs/object_detection/detection_difficulty.csv")

@@ -71,7 +71,7 @@ poetry run python scripts/evaluation/detection.py driving --skip-existing
 Combine the evaluations into the per-image metrics table:
 
 ```bash
-poetry run python scripts/analysis/get_detection_accuracy.py
+poetry run python scripts/evaluation/aggregate_evaluation_results.py
 ```
 
 Prepare the image-ID files used by the annotation stage:
@@ -145,8 +145,9 @@ poetry run python scripts/analysis/model_vs_gpt_difficulty.py 16 detection
 poetry run python scripts/analysis/model_vs_gpt_difficulty.py 16 localization
 ```
 
-Per model family object curves:
+Generate curves for every model family. Each family figure contains a separate
+curve for every available model size in that family:
 ```bash
-poetry run python scripts/analysis/permodel_vs_gpt_difficulty.py 16 detection yolov8
-poetry run python scripts/analysis/permodel_vs_gpt_difficulty.py 16 localization yolov8
+poetry run python scripts/analysis/permodel_vs_gpt_difficulty.py 16 detection
+poetry run python scripts/analysis/permodel_vs_gpt_difficulty.py 16 localization
 ```
