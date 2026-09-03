@@ -5,20 +5,26 @@ import os
 import re
 #import numpy as np
 import sys
-
-# Configuration
-os.makedirs("./outputs/annotations", exist_ok=True)
-if len(sys.argv) < 3:
-    print("Usage: python script_name.py <version> <task>")
-    sys.exit(1)
+from pathlib import Path
 
 
-version = str(sys.argv[1])
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-task = str(sys.argv[2])
+from common.experiment import PARTITIONS, annotations_dir, load_manifest  # noqa: E402
 
+import argparse
 
-folder_path = './outputs/annotations'
+parser = argparse.ArgumentParser()
+parser.add_argument("version")
+parser.add_argument("task", choices=("detection", "localization"))
+parser.add_argument("--partition", required=True, choices=PARTITIONS)
+args = parser.parse_args()
+
+version = str(args.version)
+task = args.task
+
+folder_path = annotations_dir(version, args.partition)
+os.makedirs(folder_path, exist_ok=True)
 
 excluded_datasets = []
 datasets = ["coco-2017", "voc-2007", "driving"]
@@ -46,10 +52,18 @@ for file in csv_files:
 
     if dataset not in excluded_datasets:
         df = pd.read_csv(file, delimiter=";", dtype={'image_id': object})
+        allowed_ids = set(load_manifest(args.partition, dataset)["image_id"])
+        outside_partition = set(df["image_id"].astype(str)) - allowed_ids
+        if outside_partition:
+            raise ValueError(f"{file} contains {len(outside_partition)} images outside {args.partition}")
         df["dataset"] = dataset
         data_frames.append(df)
 
+if not data_frames:
+    raise RuntimeError(f"No {task} annotation files found in {folder_path}")
+
 combined_df = pd.concat(data_frames, ignore_index=True)
+combined_df["partition"] = args.partition
 
 def extract_level(text):
     print(text)
@@ -65,6 +79,6 @@ if int(version) < 4:
 print(combined_df)
 
 if task == "localization" or task == "detection":
-    combined_df.to_csv(f"./outputs/annotations/v{version}_{task}_fewshot_dataset_gpt_difficulty.csv", index = False)
+    combined_df.to_csv(folder_path / f"v{version}_{task}_fewshot_dataset_gpt_difficulty.csv", index = False)
 else:
-    combined_df.to_csv(f"./outputs/annotations/v{version}_fewshot_dataset_gpt_difficulty.csv", index = False)
+    combined_df.to_csv(folder_path / f"v{version}_fewshot_dataset_gpt_difficulty.csv", index = False)

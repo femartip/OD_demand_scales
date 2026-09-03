@@ -1,0 +1,27 @@
+seed = 16
+manifest_dir = "data/splits"
+
+[partitions.calibration]
+source_split = "train"
+samples_per_dataset = 500
+
+[partitions.mllm_selection]
+source_split = "train"
+samples_per_dataset = 2000
+
+[partitions.locked_confirmation]
+source_split = "validation"
+samples_per_dataset = "all"
+
+[datasets.coco-2017]
+type = "fiftyone_zoo"
+name = "coco-2017"
+
+[datasets.voc-2007]
+type = "fiftyone_zoo"
+name = "voc-2007"
+
+[datasets.driving]
+type = "coco"
+train_path = "../vision_datasets/self-driving-car-v2-split/train"
+validation_path = "../vision_datasets/self-driving-car-v2-split/validation"

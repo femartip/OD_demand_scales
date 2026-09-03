@@ -3,35 +3,44 @@ import re
 import matplotlib.pyplot as plt
 import sys
 import os
-
-# Configuration
-os.makedirs("./outputs/figures", exist_ok=True)
-if len(sys.argv) != 3:
-    print("Usage: python script_name.py <version> <task>")
-    sys.exit(1)
+import argparse
+from pathlib import Path
 
 
-version = str(sys.argv[1])
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-task = str(sys.argv[2])
+from common.experiment import (PARTITIONS, annotations_dir, figures_dir, object_detection_root,)
+
+parser = argparse.ArgumentParser()
+parser.add_argument("version")
+parser.add_argument("task", choices=("detection", "localization"))
+parser.add_argument("--partition", required=True, choices=PARTITIONS)
+args = parser.parse_args()
+
+version = str(args.version)
+task = args.task
+figure_dir = figures_dir(version, args.partition)
+figure_dir.mkdir(parents=True, exist_ok=True)
+annotation_dir = annotations_dir(version, args.partition)
+evaluation_dir = object_detection_root(version, args.partition)
 
 
 
 if task == "detection":
     display_name = "Object Detection"
-    df = pd.read_csv("./outputs/object_detection/detection_difficulty.csv", dtype={'image_id': object},usecols=["dataset", "image_id", "accuracy", "model"],)
+    df = pd.read_csv(evaluation_dir / "detection_difficulty.csv", dtype={'image_id': object},usecols=["dataset", "image_id", "accuracy", "model"],)
 elif task == "localization":
     display_name = "Localization"
-    df = pd.read_csv("./outputs/object_detection/detection_difficulty.csv", dtype={'image_id': object},usecols=["dataset", "image_id", "accuracy_detection", "model"],)
+    df = pd.read_csv(evaluation_dir / "detection_difficulty.csv", dtype={'image_id': object},usecols=["dataset", "image_id", "accuracy_detection", "model"],)
     df = df.rename(columns={"accuracy_detection":"accuracy"})
 else:
     sys.exit(1)
 
 
 if task == "localization" or task == "detection":
-    gpt_diff = pd.read_csv(f"./outputs/annotations/v{version}_{task}_fewshot_dataset_gpt_difficulty.csv", dtype={'image_id': object})
+    gpt_diff = pd.read_csv(annotation_dir / f"v{version}_{task}_fewshot_dataset_gpt_difficulty.csv", dtype={'image_id': object})
 else:
-    gpt_diff = pd.read_csv(f"./outputs/annotations/v{version}_fewshot_dataset_gpt_difficulty.csv", dtype={'image_id': object})
+    gpt_diff = pd.read_csv(annotation_dir / f"v{version}_fewshot_dataset_gpt_difficulty.csv", dtype={'image_id': object})
 
 gpt_diff = gpt_diff[gpt_diff['level'] != 'error']
 
@@ -121,7 +130,7 @@ for family, family_models in model_families.items():
     plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
     plt.xlabel(f'{display_name} demand level')
     plt.ylabel(f'{display_name} accuracy')
-    plt.title(f'{family_display_names[family]} {display_name} Accuracy by {display_name} Demand Level')
+    plt.title(f'{family_display_names[family]} {display_name} Accuracy by {display_name} Demand Level ({args.partition})')
     plt.subplots_adjust(right=0.7)
-    plt.savefig(f"./outputs/figures/v{version}_{family}_{task}_fewshot_accuracy_curves.pdf")
+    plt.savefig(figure_dir / f"v{version}_{family}_{task}_fewshot_accuracy_curves.pdf")
     plt.close()

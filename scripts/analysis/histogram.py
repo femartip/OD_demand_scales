@@ -2,6 +2,13 @@ import json
 import sys
 import os
 import matplotlib.pyplot as plt
+import argparse
+from pathlib import Path
+
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from common.experiment import (PARTITIONS, figures_dir, object_detection_dataset_dir,)
 
 
 def get_classes(data, term, gt_name):
@@ -30,49 +37,50 @@ def list_files_in_directory(directory_path):
     return file_names
 
 
-if __name__ == '__main__':
+parser = argparse.ArgumentParser()
+parser.add_argument("dataset")
+parser.add_argument("--version", type=int, required=True)
+parser.add_argument("--partition", required=True, choices=PARTITIONS)
+args = parser.parse_args()
 
-    if len(sys.argv) != 2:
-        print("Usage: python script_name.py <dataset>")
-        sys.exit(1)
+dataset = args.dataset
 
-    dataset = str(sys.argv[1])
+if dataset == "coco-2017":
+    term = "supercategory"
+elif dataset == "voc-2007"or dataset=="driving":
+    term = "label"
 
-    if dataset == "coco-2017":
-        term = "supercategory"
-    elif dataset == "voc-2007"or dataset=="driving":
-        term = "label"
+PREDEFINED_DATASETS = ["coco-2017","voc-2007"]
 
-    PREDEFINED_DATASETS = ["coco-2017","voc-2007"]
-    
-    predefined = dataset in PREDEFINED_DATASETS
+predefined = dataset in PREDEFINED_DATASETS
 
-    if predefined:
-        gt_name = "ground_truth"
-    else:
-        gt_name = "detections"
+if predefined:
+    gt_name = "ground_truth"
+else:
+    gt_name = "detections"
 
-    directory_path = f'./outputs/object_detection/{dataset}'
-    files_list = [file for file in list_files_in_directory(directory_path) if file.endswith("_predictions.json")]
-    
-    for file in [files_list[0]]:
-        print(file)
+directory_path = object_detection_dataset_dir(args.version, args.partition, dataset)
+files_list = [file for file in list_files_in_directory(directory_path) if file.endswith("_predictions.json")]
 
-        f = open(os.path.join(directory_path, file))
-        data = json.load(f)
+for file in [files_list[0]]:
+    print(file)
 
-        results = get_classes(data["samples"], term, gt_name)
+    f = open(os.path.join(directory_path, file))
+    data = json.load(f)
 
-    sorted_results = dict(sorted(results.items(), key=lambda item: item[1], reverse=True))
-    labels = list(sorted_results.keys())
-    values = list(sorted_results.values())
+    results = get_classes(data["samples"], term, gt_name)
 
-    plt.figure(figsize=(10, 6))
-    plt.bar(labels, values, color = "#31005c")
-    plt.xticks(rotation=90)  
-    plt.xlabel("Classes")
-    plt.ylabel("Frequency")
-    plt.tight_layout()
+sorted_results = dict(sorted(results.items(), key=lambda item: item[1], reverse=True))
+labels = list(sorted_results.keys())
+values = list(sorted_results.values())
 
-    os.makedirs("./outputs/figures", exist_ok=True)
-    plt.savefig(f"./outputs/figures/histogram_{dataset}.pdf")
+plt.figure(figsize=(10, 6))
+plt.bar(labels, values, color = "#31005c")
+plt.xticks(rotation=90)  
+plt.xlabel("Classes")
+plt.ylabel("Frequency")
+plt.tight_layout()
+
+output_dir = figures_dir(args.version, args.partition)
+os.makedirs(output_dir, exist_ok=True)
+plt.savefig(output_dir / f"histogram_{dataset}.pdf")
