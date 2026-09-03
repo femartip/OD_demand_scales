@@ -38,6 +38,8 @@ Combining datasets is intentional: the pooled population is meant to cover a bro
 
 The inference script loads the COCO 2017 and VOC 2007 validation splits through FiftyOne. It expects the driving dataset in COCO format at `../vision_datasets/driving-validation/`. Prediction-confidence filtering uses each model's native default, except for the Hugging Face-backed D-FINE, RT-DETR-v2, and DETR models, whose FiftyOne wrapper otherwise retains every decoder query. These models use a confidence threshold of 0.5 by default, configurable with `--transformer-confidence-threshold`. Detection and localization matching use a common IoU threshold of 0.5; this is a matching threshold, not a prediction-confidence threshold.
 
+Before running each model, the inference script clears the shared FiftyOne `predictions` field. Inference failures are fatal, and an output file is saved only after every sample has received a fresh prediction container. This prevents a failed model from inheriting the preceding model's predictions. A local compatibility shim also handles RF-DETR versions that expose COCO class names as a list while using sparse COCO category IDs.
+
 The configured closed-set panel contains 40 models: five YOLOv5 sizes, five YOLOv8 sizes, two YOLOv9 sizes, five YOLOv10 sizes, five YOLO11 sizes, five D-FINE sizes, five RF-DETR sizes, five RT-DETR/RT-DETR-v2 variants, DETR, Faster R-CNN, and RetinaNet. Open-vocabulary detectors are not included in this panel.
 
 Generate raw ground-truth and prediction files named `<model>_predictions.json` for every dataset and model configured in the script:
@@ -50,6 +52,12 @@ By default, inference overwrites existing model/dataset result files. Resume an 
 
 ```bash
 poetry run python scripts/inference/get_predictions.py --skip-existing
+```
+
+Run or replace only selected models with `--models`. Do not combine this with `--skip-existing` when replacing invalid outputs. For example, rerun the five RF-DETR models over all three datasets with:
+
+```bash
+poetry run python scripts/inference/get_predictions.py --models rfdetr-nano-coco-torch rfdetr-small-coco-torch rfdetr-medium-coco-torch rfdetr-base-coco-torch rfdetr-large-coco-torch
 ```
 
 Generate both the class-aware detection and class-agnostic localization evaluations for each dataset. Each output is named `<model>_detection_and_localization_evaluation.json`:
@@ -66,6 +74,14 @@ By default, these commands overwrite existing combined evaluations. Resume an in
 poetry run python scripts/evaluation/detection.py coco-2017 --skip-existing
 poetry run python scripts/evaluation/detection.py voc-2007 --skip-existing
 poetry run python scripts/evaluation/detection.py driving --skip-existing
+```
+
+Evaluation can likewise be restricted to selected models. After replacing the RF-DETR predictions, overwrite only their evaluations with:
+
+```bash
+poetry run python scripts/evaluation/detection.py coco-2017 --models rfdetr-nano-coco-torch rfdetr-small-coco-torch rfdetr-medium-coco-torch rfdetr-base-coco-torch rfdetr-large-coco-torch
+poetry run python scripts/evaluation/detection.py voc-2007 --models rfdetr-nano-coco-torch rfdetr-small-coco-torch rfdetr-medium-coco-torch rfdetr-base-coco-torch rfdetr-large-coco-torch
+poetry run python scripts/evaluation/detection.py driving --models rfdetr-nano-coco-torch rfdetr-small-coco-torch rfdetr-medium-coco-torch rfdetr-base-coco-torch rfdetr-large-coco-torch
 ```
 
 Combine the evaluations into the per-image metrics table:

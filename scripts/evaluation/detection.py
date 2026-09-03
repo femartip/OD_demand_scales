@@ -1,6 +1,5 @@
 import json
 import os
-import sys
 import uuid
 import argparse
 
@@ -97,17 +96,17 @@ def save_json_to_folder(data, folder_path, file_name):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("dataset")
-    parser.add_argument(
-        "--skip-existing",
-        action="store_true",
-        help="Skip predictions whose combined evaluation JSON already exists",
-    )
+    parser.add_argument("--skip-existing",action="store_true",help="Skip predictions whose combined evaluation JSON already exists",)
+    parser.add_argument("--models",nargs="+",help="Only evaluate the specified model names",)
     args = parser.parse_args()
 
     dataset_name = args.dataset
     ground_truth_field = ("ground_truth" if dataset_name in {"coco-2017", "voc-2007"} else "detections")
     directory_path = f"./outputs/object_detection/{dataset_name}"
     files_list = [file_name for file_name in list_files_in_directory(directory_path) if file_name.endswith("_predictions.json")]
+    if args.models:
+        selected_files = {f"{model_name}_predictions.json" for model_name in args.models}
+        files_list = [file_name for file_name in files_list if file_name in selected_files]
 
     for file_name in files_list:
         output_file = file_name.replace("_predictions.json", "_detection_and_localization_evaluation.json")

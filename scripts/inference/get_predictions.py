@@ -1,21 +1,48 @@
 import json
 import fiftyone as fo
 import fiftyone.zoo as foz
-import sys
-import pandas as pd
-import random
 import os
 import argparse
 
+def patch_rfdetr_class_name_conversion():
+    """Missmatch between libraries creates an error where they are not in the same format 
+    RF-DETR expose class names as a list but is expected as a dict."""
+    import fiftyone.utils.rfdetr as four
+
+    original_converter = four._sv_detections_to_fo
+    if getattr(original_converter, "_supports_rfdetr_list_class_names", False):
+        return
+
+    def compatible_converter(
+        sv_dets, width, height, class_names, has_masks
+    ):
+        if isinstance(class_names, (list, tuple)):
+            detection_data = getattr(sv_dets, "data", {}) or {}
+            detection_names = detection_data.get("class_name")
+            class_ids = getattr(sv_dets, "class_id", None)
+
+            if detection_names is not None and class_ids is not None:
+                class_names = {
+                    int(class_id): str(class_name)
+                    for class_id, class_name in zip(class_ids, detection_names)
+                }
+            else:
+                class_names = dict(enumerate(class_names))
+
+        return original_converter(
+            sv_dets, width, height, class_names, has_masks
+        )
+
+    compatible_converter._supports_rfdetr_list_class_names = True
+    four._sv_detections_to_fo = compatible_converter
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--skip-existing",action="store_true",help="Skip model/dataset evaluations whose output JSON already exists",)
-parser.add_argument(
-    "--transformer-confidence-threshold",
-    type=float,
-    default=0.5,
-    help="Confidence threshold for Hugging Face transformer detectors",
-)
+parser.add_argument("--transformer-confidence-threshold",type=float,default=0.5,help="Confidence threshold for Hugging Face transformer detectors",)
+parser.add_argument("--models",nargs="+", help="Only run the specified model names",)
 args = parser.parse_args()
+
+patch_rfdetr_class_name_conversion()
 
 datasets = ["coco-2017","voc-2007","driving"]
 
@@ -79,6 +106,12 @@ for dataset_name in datasets:
         "retinanet-resnet50-fpn-coco-torch",
     ]
 
+    if args.models:
+        unknown_models = sorted(set(args.models) - set(model_list))
+        if unknown_models:
+            parser.error(f"Unknown model names: {', '.join(unknown_models)}")
+        model_list = args.models
+
 
     for model_name in model_list:
         print(model_name)
@@ -95,7 +128,15 @@ for dataset_name in datasets:
         if confidence_thresh is not None:
             print(f"Using confidence threshold {confidence_thresh}")
 
-        dataset.apply_model(model,label_field="predictions",confidence_thresh=confidence_thresh,batch_size=8,num_workers=12,pin_memory=True,)
+        if "predictions" in dataset.get_field_schema():
+            dataset.clear_sample_field("predictions")
+
+        dataset.apply_model(model,label_field="predictions",confidence_thresh=confidence_thresh,batch_size=8,num_workers=12,pin_memory=True,skip_failures=False,)
+
+        missing_predictions = len(dataset) - dataset.exists("predictions").count()
+        if missing_predictions:
+            raise RuntimeError(f"{model_name} did not write predictions for {missing_predictions/len(dataset)} samples"
+            )
 
         # Dont need to evaluate here, this is done on the evaluation/detection.py
         #results = dataset.evaluate_detections(pred_field="predictions",gt_field=ground_truth,eval_key="eval_coco",compute_mAP=False,)
@@ -103,5 +144,7 @@ for dataset_name in datasets:
         dataset_dict = dataset.to_dict()
 
         os.makedirs(output_dir, exist_ok=True)
-        with open(output_path, 'w') as f:
+        temporary_output_path = f"{output_path}.tmp"
+        with open(temporary_output_path, 'w') as f:
             json.dump(dataset_dict, f, indent=4)
+        os.replace(temporary_output_path, output_path)
