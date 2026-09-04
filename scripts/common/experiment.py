@@ -78,13 +78,13 @@ def validate_partition(partition):
         raise ValueError(f"Partition must be one of: {', '.join(PARTITIONS)}")
 
 
-def object_detection_root(version, partition):
+def object_detection_root(partition):
     validate_partition(partition)
-    return REPO_ROOT / "outputs/object_detection" / f"v{version}" / partition
+    return REPO_ROOT / "outputs/object_detection" / partition
 
 
-def object_detection_dataset_dir(version, partition, dataset):
-    return object_detection_root(version, partition) / dataset
+def object_detection_dataset_dir(partition, dataset):
+    return object_detection_root(partition) / dataset
 
 
 def annotations_dir(version, partition):

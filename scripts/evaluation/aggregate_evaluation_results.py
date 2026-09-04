@@ -28,7 +28,7 @@ parser.add_argument("--version",type=int,required=True,help="Experiment version"
 parser.add_argument("--partition",required=True,choices=PARTITIONS,help="Experimental partition to aggregate")
 args = parser.parse_args()
 
-output_root = object_detection_root(args.version, args.partition)
+output_root = object_detection_root(args.partition)
 experiment_config = load_experiment_config(args.version)
 datasets = list(split_config_for_version(args.version)["datasets"])
 all_paths = {}
@@ -62,7 +62,6 @@ for dataset in all_paths:
                 
             temp_df["model"] = os.path.basename(file_path).replace("_detection_and_localization_evaluation.json", "")
             temp_df["dataset"] = dataset
-            temp_df["version"] = args.version
             temp_df["partition"] = args.partition
             df = pd.concat([df, temp_df])
 

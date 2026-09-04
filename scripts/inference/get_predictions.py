@@ -116,7 +116,7 @@ for dataset_name in datasets:
     for model_name in model_list:
         print(model_name)
 
-        output_dir = object_detection_dataset_dir(args.version, args.partition, dataset_name)
+        output_dir = object_detection_dataset_dir(args.partition, dataset_name)
         output_path = output_dir / f'{model_name}_predictions.json'
         if args.skip_existing and os.path.isfile(output_path):
             print(f"Skipping existing result: {output_path}")

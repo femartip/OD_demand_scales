@@ -59,7 +59,7 @@ if predefined:
 else:
     gt_name = "detections"
 
-directory_path = object_detection_dataset_dir(args.version, args.partition, dataset)
+directory_path = object_detection_dataset_dir(args.partition, dataset)
 files_list = [file for file in list_files_in_directory(directory_path) if file.endswith("_predictions.json")]
 
 for file in [files_list[0]]:

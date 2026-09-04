@@ -25,7 +25,7 @@ strategy_display = "Zero-shot" if prompt_strategy == "zeroshot" else "Few-shot"
 figure_dir = figures_dir(version, args.partition)
 figure_dir.mkdir(parents=True, exist_ok=True)
 annotation_dir = annotations_dir(version, args.partition)
-evaluation_dir = object_detection_root(version, args.partition)
+evaluation_dir = object_detection_root(args.partition)
 
 
 if task == "detection":

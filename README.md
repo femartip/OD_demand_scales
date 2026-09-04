@@ -137,7 +137,9 @@ Combine the evaluations into the per-image metrics table:
 poetry run python scripts/evaluation/aggregate_evaluation_results.py --version 16 --partition calibration
 ```
 
-Outputs are written below `outputs/object_detection/v<version>/<partition>/`.
+Detector predictions and evaluations are shared by all rubric versions and are written
+below `outputs/object_detection/<partition>/`. Rubric annotations and figures remain
+versioned.
 
 The repository-root `run_partition_pipeline.sh` runs inference, evaluation, MLLM
 annotation, aggregation, and all overall and per-family plots for every dataset. Edit

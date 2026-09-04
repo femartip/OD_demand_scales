@@ -112,7 +112,7 @@ dataset_name = args.dataset
 experiment_config = load_experiment_config(args.version)
 evaluation_config = experiment_config["evaluation"]
 ground_truth_field = ("ground_truth" if dataset_name in {"coco-2017", "voc-2007"} else "detections")
-directory_path = object_detection_dataset_dir(args.version, args.partition, dataset_name)
+directory_path = object_detection_dataset_dir(args.partition, dataset_name)
 files_list = [file_name for file_name in list_files_in_directory(directory_path) if file_name.endswith("_predictions.json")]
 if args.models:
     selected_files = {f"{model_name}_predictions.json" for model_name in args.models}

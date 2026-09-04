@@ -1,4 +1,5 @@
 /artifacts/runs/
+exploratory/
 outputs/object_detection
 *.sh
 /outputs/logs
