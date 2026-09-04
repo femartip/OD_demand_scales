@@ -1,0 +1,13 @@
+version = 17
+split_config = "configs/splits.toml"
+
+[evaluation]
+iou_threshold = 0.5
+compute_map = false
+empty_union_score = 1.0
+
+[inference]
+transformer_confidence_threshold = 0.5
+
+[rubric]
+prompt_zeroshot = "data/prompts/17/zero_shot_prompt_1dim_rubric.txt"

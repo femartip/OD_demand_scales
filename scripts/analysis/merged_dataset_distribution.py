@@ -1,27 +1,25 @@
 import pandas as pd
-#import matplotlib.pyplot as plt
 import glob
 import os
 import re
-#import numpy as np
 import sys
 from pathlib import Path
-
+import argparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from common.experiment import (PARTITIONS,PROMPT_STRATEGIES,annotations_dir,load_manifest,)
 
-from common.experiment import PARTITIONS, annotations_dir, load_manifest  # noqa: E402
-
-import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument("version")
 parser.add_argument("task", choices=("detection", "localization"))
+parser.add_argument("prompt_strategy", choices=PROMPT_STRATEGIES)
 parser.add_argument("--partition", required=True, choices=PARTITIONS)
 args = parser.parse_args()
 
 version = str(args.version)
 task = args.task
+prompt_strategy = args.prompt_strategy
 
 folder_path = annotations_dir(version, args.partition)
 os.makedirs(folder_path, exist_ok=True)
@@ -29,15 +27,7 @@ os.makedirs(folder_path, exist_ok=True)
 excluded_datasets = []
 datasets = ["coco-2017", "voc-2007", "driving"]
 
-
-
-if task == "localization" or task == "detection":
-    csv_files = glob.glob(os.path.join(folder_path, f'v{version}_{task}_fewshot_labelled*.csv'))
-else:
-    csv_files = glob.glob(os.path.join(folder_path, f'v{version}_fewshot_labelled*.csv'))
-
-
-
+csv_files = sorted(glob.glob(os.path.join(folder_path,f'v{version}_{task}_{prompt_strategy}_labelled_images_*.csv',)))
 
 data_frames = []
 
@@ -64,6 +54,7 @@ if not data_frames:
 
 combined_df = pd.concat(data_frames, ignore_index=True)
 combined_df["partition"] = args.partition
+combined_df["prompt_strategy"] = prompt_strategy
 
 def extract_level(text):
     print(text)
@@ -78,7 +69,4 @@ if int(version) < 4:
 
 print(combined_df)
 
-if task == "localization" or task == "detection":
-    combined_df.to_csv(folder_path / f"v{version}_{task}_fewshot_dataset_gpt_difficulty.csv", index = False)
-else:
-    combined_df.to_csv(folder_path / f"v{version}_fewshot_dataset_gpt_difficulty.csv", index = False)
+combined_df.to_csv(folder_path / f"v{version}_{task}_{prompt_strategy}_dataset_gpt_difficulty.csv",index=False,)

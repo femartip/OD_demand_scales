@@ -6,19 +6,22 @@ import os
 import argparse
 from pathlib import Path
 
-
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from common.experiment import (PARTITIONS, PROMPT_STRATEGIES, annotations_dir, figures_dir, object_detection_root,)
 
-from common.experiment import (PARTITIONS, annotations_dir, figures_dir, object_detection_root,)
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument("version")
 parser.add_argument("task", choices=("detection", "localization"))
+parser.add_argument("prompt_strategy", choices=PROMPT_STRATEGIES)
 parser.add_argument("--partition", required=True, choices=PARTITIONS)
 args = parser.parse_args()
 
 version = str(args.version)
 task = args.task
+prompt_strategy = args.prompt_strategy
+strategy_display = "Zero-shot" if prompt_strategy == "zeroshot" else "Few-shot"
 figure_dir = figures_dir(version, args.partition)
 figure_dir.mkdir(parents=True, exist_ok=True)
 annotation_dir = annotations_dir(version, args.partition)
@@ -39,10 +42,7 @@ else:
 
 df = pd.read_csv(evaluation_dir / "detection_difficulty.csv", dtype={'image_id': object}, usecols=["dataset", "image_id", metric],)
 
-if task == "localization" or task == "detection":
-    gpt_diff = pd.read_csv(annotation_dir / f"v{version}_{task}_fewshot_dataset_gpt_difficulty.csv", dtype={'image_id': object})
-else:
-    gpt_diff = pd.read_csv(annotation_dir / f"v{version}_fewshot_dataset_gpt_difficulty.csv", dtype={'image_id': object})
+gpt_diff = pd.read_csv(annotation_dir / f"v{version}_{task}_{prompt_strategy}_dataset_gpt_difficulty.csv",dtype={'image_id': object},)
 
 
 gpt_diff = gpt_diff[gpt_diff['level'] != 'error']
@@ -61,9 +61,9 @@ level_counts.plot(kind='bar', color = "#31005c")
 plt.xticks(rotation=0)
 plt.xlabel('Level')
 plt.ylabel('Count')
-plt.title(f'{display_name} Demand-Level Distribution ({args.partition})')
+plt.title(f'{display_name} Demand-Level Distribution — {strategy_display} ({args.partition})')
 
-plt.savefig(figure_dir / f"v{version}_{task}_level_distribution.pdf")
+plt.savefig(figure_dir / f"v{version}_{task}_{prompt_strategy}_level_distribution.pdf")
 
 
 grouped = df.groupby(['dataset', 'image_id'], as_index=False).mean()
@@ -93,11 +93,8 @@ plt.plot(avg_trend['level'], avg_trend[metric], color=color, linewidth=2, label=
 
 plt.xlabel(f'{display_name} demand level')
 plt.ylabel(f'{display_name} accuracy')
-plt.title(f'Mean {display_name} Accuracy by {display_name} Demand Level ({args.partition})')
+plt.title(f'Mean {display_name} Accuracy by Demand Level — {strategy_display} ({args.partition})')
 plt.legend()
-if task == "localization" or task == "detection":
-    plt.savefig(figure_dir / f"v{version}_{task}_fewshot_accuracy_curve.pdf")
-else:
-    plt.savefig(figure_dir / f"v{version}_fewshot_detection_scatterplot.pdf")
+plt.savefig(figure_dir / f"v{version}_{task}_{prompt_strategy}_accuracy_curve.pdf")
 
 plt.show()

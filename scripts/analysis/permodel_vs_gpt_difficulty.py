@@ -6,19 +6,22 @@ import os
 import argparse
 from pathlib import Path
 
-
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from common.experiment import (PARTITIONS, PROMPT_STRATEGIES, annotations_dir, figures_dir, object_detection_root,)
 
-from common.experiment import (PARTITIONS, annotations_dir, figures_dir, object_detection_root,)
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument("version")
 parser.add_argument("task", choices=("detection", "localization"))
+parser.add_argument("prompt_strategy", choices=PROMPT_STRATEGIES)
 parser.add_argument("--partition", required=True, choices=PARTITIONS)
 args = parser.parse_args()
 
 version = str(args.version)
 task = args.task
+prompt_strategy = args.prompt_strategy
+strategy_display = "Zero-shot" if prompt_strategy == "zeroshot" else "Few-shot"
 figure_dir = figures_dir(version, args.partition)
 figure_dir.mkdir(parents=True, exist_ok=True)
 annotation_dir = annotations_dir(version, args.partition)
@@ -37,10 +40,7 @@ else:
     sys.exit(1)
 
 
-if task == "localization" or task == "detection":
-    gpt_diff = pd.read_csv(annotation_dir / f"v{version}_{task}_fewshot_dataset_gpt_difficulty.csv", dtype={'image_id': object})
-else:
-    gpt_diff = pd.read_csv(annotation_dir / f"v{version}_fewshot_dataset_gpt_difficulty.csv", dtype={'image_id': object})
+gpt_diff = pd.read_csv(annotation_dir / f"v{version}_{task}_{prompt_strategy}_dataset_gpt_difficulty.csv",dtype={'image_id': object},)
 
 gpt_diff = gpt_diff[gpt_diff['level'] != 'error']
 
@@ -130,7 +130,7 @@ for family, family_models in model_families.items():
     plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
     plt.xlabel(f'{display_name} demand level')
     plt.ylabel(f'{display_name} accuracy')
-    plt.title(f'{family_display_names[family]} {display_name} Accuracy by {display_name} Demand Level ({args.partition})')
+    plt.title(f'{family_display_names[family]} {display_name} Accuracy by Demand Level — {strategy_display} ({args.partition})')
     plt.subplots_adjust(right=0.7)
-    plt.savefig(figure_dir / f"v{version}_{family}_{task}_fewshot_accuracy_curves.pdf")
+    plt.savefig(figure_dir / f"v{version}_{family}_{task}_{prompt_strategy}_accuracy_curves.pdf")
     plt.close()

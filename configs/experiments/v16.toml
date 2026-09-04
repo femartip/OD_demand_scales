@@ -10,5 +10,6 @@ empty_union_score = 1.0
 transformer_confidence_threshold = 0.5
 
 [rubric]
-prompt = "data/prompts/16/few_shot_prompt_1dim_rubric.txt"
+prompt_fewshot = "data/prompts/16/few_shot_prompt_1dim_rubric.txt"
+prompt_zeroshot = "data/prompts/16/zero_shot_prompt_1dim_rubric.txt"
 examples = "data/prompts/16/images"

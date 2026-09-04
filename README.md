@@ -17,9 +17,9 @@ Based on OECD vision capability scale:
 
 The work combines it into a single image-demand scale. Where it is rephrased to focus con the capability required for the instance, focusing on image quality, where aplications are removed. 
 
-Each experiment configuration selects its prompt and example directory. Version 16 uses
-`data/prompts/16/few_shot_prompt_1dim_rubric.txt` and `data/prompts/16/images`. The
-one-shot prompt file is retained as a reference artifact.
+Each experiment configuration selects its zero-shot and/or few-shot prompt files. Version
+16 supports both strategies and uses `data/prompts/16/images` for the few-shot examples.
+Version 17 currently defines the new observable-demand rubric as a zero-shot prompt.
 
 Same rubric used for two tasks:
 - Localisation, the prompt defines the task as determining object positions using tight rectangular bounding boxes.
@@ -141,7 +141,7 @@ Outputs are written below `outputs/object_detection/v<version>/<partition>/`.
 
 The repository-root `run_partition_pipeline.sh` runs inference, evaluation, MLLM
 annotation, aggregation, and all overall and per-family plots for every dataset. Edit
-`VERSION`, `PARTITION`, and `OVERWRITE` at the top before running it. The local
+`VERSION`, `PARTITION`, `PROMPT_STRATEGY`, and `OVERWRITE` at the top before running it. The local
 `llama-server` must already be running when the annotation stage begins.
 
 
@@ -170,18 +170,20 @@ llama-server \
   --port 8080
 ```
 
-The annotation script reads image IDs and paths from the selected global manifest. It
-annotates the complete partition by default; use `--max-samples N` only for an explicit
-partial run. Existing valid rows are resumed unless `--overwrite` is passed.
+The annotation script reads image IDs and paths from the selected global manifest. Its
+fourth positional argument selects `zeroshot` or `fewshot`. It annotates the complete
+partition by default; use `--max-samples N` only for an explicit partial run. Existing
+valid rows are resumed unless `--overwrite` is passed. Strategy-specific filenames keep
+zero-shot and few-shot annotations separate.
 
 ```bash
-poetry run python scripts/rubrics/llm-fewshot.py coco-2017 detection 16 --partition calibration
-poetry run python scripts/rubrics/llm-fewshot.py voc-2007 detection 16 --partition calibration
-poetry run python scripts/rubrics/llm-fewshot.py driving detection 16 --partition calibration
+poetry run python scripts/rubrics/llm-prompting.py coco-2017 detection 17 zeroshot --partition calibration
+poetry run python scripts/rubrics/llm-prompting.py voc-2007 detection 17 zeroshot --partition calibration
+poetry run python scripts/rubrics/llm-prompting.py driving detection 17 zeroshot --partition calibration
 
-poetry run python scripts/rubrics/llm-fewshot.py coco-2017 localization 16 --partition calibration
-poetry run python scripts/rubrics/llm-fewshot.py voc-2007 localization 16 --partition calibration
-poetry run python scripts/rubrics/llm-fewshot.py driving localization 16 --partition calibration
+poetry run python scripts/rubrics/llm-prompting.py coco-2017 localization 17 zeroshot --partition calibration
+poetry run python scripts/rubrics/llm-prompting.py voc-2007 localization 17 zeroshot --partition calibration
+poetry run python scripts/rubrics/llm-prompting.py driving localization 17 zeroshot --partition calibration
 ```
 ## Analysis and plots
 
@@ -190,19 +192,19 @@ Merge all datasets:
 The merge retains every available annotation and records the source dataset, so later analysis identifies images by both dataset and image ID.
 
 ```bash
-poetry run python scripts/analysis/merged_dataset_distribution.py 16 detection --partition calibration
-poetry run python scripts/analysis/merged_dataset_distribution.py 16 localization --partition calibration
+poetry run python scripts/analysis/merged_dataset_distribution.py 17 detection zeroshot --partition calibration
+poetry run python scripts/analysis/merged_dataset_distribution.py 17 localization zeroshot --partition calibration
 ```
 
 Generate overall curves:
 ```bash
-poetry run python scripts/analysis/model_vs_gpt_difficulty.py 16 detection --partition calibration
-poetry run python scripts/analysis/model_vs_gpt_difficulty.py 16 localization --partition calibration
+poetry run python scripts/analysis/model_vs_gpt_difficulty.py 17 detection zeroshot --partition calibration
+poetry run python scripts/analysis/model_vs_gpt_difficulty.py 17 localization zeroshot --partition calibration
 ```
 
 Generate curves for every model family. Each family figure contains a separate
 curve for every available model size in that family:
 ```bash
-poetry run python scripts/analysis/permodel_vs_gpt_difficulty.py 16 detection --partition calibration
-poetry run python scripts/analysis/permodel_vs_gpt_difficulty.py 16 localization --partition calibration
+poetry run python scripts/analysis/permodel_vs_gpt_difficulty.py 17 detection zeroshot --partition calibration
+poetry run python scripts/analysis/permodel_vs_gpt_difficulty.py 17 localization zeroshot --partition calibration
 ```

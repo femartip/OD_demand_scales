@@ -1,4 +1,4 @@
-You are going to score the level of TASK capabilities [1, 2, 3, 4, 5] required to interpret the image you will be shown. TASK DEFINITION. 1 represents very easy images and 5 represents very difficult images.
+You are going to score the level of [TASK] capabilities [1, 2, 3, 4, 5] required to interpret the image you will be shown. [TASK_DEFINITION]. 1 represents very easy images and 5 represents very difficult images.
 
 Below you have a detailed description of each level’s requirements. Read them carefully and select the most suitable one.
 
@@ -12,4 +12,6 @@ Level 2. This level requires the respondents to have basic capabilities, there a
 
 Level 1. This level includes simple vision tasks. They require distinguishing between common shapes, detecting color, or identifying large, distinct objects within a limited scope and clear backgrounds, with no occlusion. Images at this level don’t require un- derstanding context or making nuanced distinctions between objects or features. The resolution is sufcient for the size of the objects in question, and the image does not have signifcant blur, occlusions, or bad lighting conditions afecting the recognition task. 
 
-Please *only* answer giving a natural number between 1 (very easy TASK problem) and 5 (very difcult TASK problem) as the level you think better represents the TASK demands of the image.
+Please *only* answer giving a natural number between 1 (very easy [TASK] problem) and 5 (very difficult [TASK] problem) as the level you think best represents the [TASK] demands of the image.
+
+[TARGET_IMAGE]

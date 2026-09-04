@@ -8,10 +8,9 @@ import sys
 import argparse
 from pathlib import Path
 
-
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from common.experiment import (PARTITIONS, PROMPT_STRATEGIES, annotations_dir, load_experiment_config, load_manifest, resolve_repo_path, split_config_for_version,)
 
-from common.experiment import (PARTITIONS, annotations_dir, load_experiment_config, load_manifest, resolve_repo_path, split_config_for_version,)
 
 
 def encode_image(image_path):
@@ -33,10 +32,12 @@ parser = argparse.ArgumentParser()
 parser.add_argument("dataset", choices=("coco-2017", "voc-2007", "driving"))
 parser.add_argument("task", choices=("detection", "localization"))
 parser.add_argument("version", type=int)
+parser.add_argument("prompt_strategy", choices=PROMPT_STRATEGIES)
 parser.add_argument("--partition", required=True, choices=PARTITIONS)
 parser.add_argument("--max-samples", type=int, default=int(os.environ["MAX_SAMPLES"]) if "MAX_SAMPLES" in os.environ else None, help="Annotate only the first N manifest rows; by default annotate the whole partition",)
 parser.add_argument("--max-label-attempts", type=int, default=int(os.environ.get("MAX_LABEL_ATTEMPTS", 5)), )
 parser.add_argument("--overwrite", action="store_true", help="Replace this model's existing annotation file instead of resuming it", )
+parser.add_argument("--validate-prompt", action="store_true", help="Validate the configured prompt and examples without contacting the model",)
 args = parser.parse_args()
 
 dataset = args.dataset
@@ -56,8 +57,6 @@ else:
    print("Not implemented")
    sys.exit(1)
 
-
-
 version = args.version
 experiment_config = load_experiment_config(version)
 split_config = split_config_for_version(version)
@@ -74,7 +73,7 @@ if max_samples is not None:
 # check if those instances have been already labelled
 output_annotations_dir = annotations_dir(version, args.partition)
 os.makedirs(output_annotations_dir, exist_ok=True)
-destination_path = output_annotations_dir / f"v{version}_{task_to_evaluate}_fewshot_labelled_images_{dataset}_{MODEL_NAME}.csv"
+destination_path = output_annotations_dir / f"v{version}_{task_to_evaluate}_{args.prompt_strategy}_labelled_images_{dataset}_{MODEL_NAME}.csv"
 if args.overwrite and destination_path.is_file():
   destination_path.unlink()
 labelled_prev = False
@@ -87,14 +86,31 @@ if os.path.isfile(destination_path):
     if pd.notna(row["level"]) and str(row["level"]).strip().lower() != "nan":
       already_labelled.append(str(row["image_id"]))
 
-
-few_shot_dir = resolve_repo_path(experiment_config["rubric"]["examples"])
-prompt_path = resolve_repo_path(experiment_config["rubric"]["prompt"])
+prompt_key = f"prompt_{args.prompt_strategy}"
+if prompt_key not in experiment_config["rubric"]:
+  raise ValueError(f"Experiment v{version} does not define rubric.{prompt_key}")
+prompt_path = resolve_repo_path(experiment_config["rubric"][prompt_key])
 prompt_template = prompt_path.read_text(encoding="utf-8")
+if prompt_template.count("[TARGET_IMAGE]") != 1:
+  raise ValueError(f"{prompt_path} must contain exactly one [TARGET_IMAGE] marker")
+for marker in ("[TASK]", "[TASK_DEFINITION]"):
+  if marker not in prompt_template:
+    raise ValueError(f"{prompt_path} must contain the {marker} marker")
 prompt_template = prompt_template.replace("[TASK_DEFINITION]", task_definition).replace("[TASK]", task)
 system_prompt, user_prompt = prompt_template.split("[TARGET_IMAGE]", maxsplit=1)
-system_content = build_prompt_content(system_prompt, few_shot_dir)
 
+image_markers = re.findall(r"\[IMAGE:[^\]]+\]", system_prompt)
+if args.prompt_strategy == "zeroshot" and image_markers:
+  raise ValueError(f"Zero-shot prompt {prompt_path} must not contain example images")
+if args.prompt_strategy == "fewshot" and not image_markers:
+  raise ValueError(f"Few-shot prompt {prompt_path} must contain at least one example image")
+
+example_dir = resolve_repo_path(experiment_config["rubric"].get("examples", prompt_path.parent))
+system_content = build_prompt_content(system_prompt, example_dir)
+
+if args.validate_prompt:
+  print(f"Valid {args.prompt_strategy} prompt for v{version}: {prompt_path}")
+  sys.exit(0)
 
 with open(destination_path, 'a', newline='', encoding='utf-8') as CSV_file:
     writer_CSV = csv.writer(CSV_file, delimiter=';')

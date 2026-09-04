@@ -9,6 +9,7 @@ import pandas as pd
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PARTITIONS = ("calibration", "mllm_selection", "locked_confirmation")
+PROMPT_STRATEGIES = ("zeroshot", "fewshot")
 DEFAULT_SPLIT_CONFIG = REPO_ROOT / "configs/splits.toml"
 
 
