@@ -1,0 +1,55 @@
+You are going to assess the intrinsic visual demand of one image for [TASK]. [TASK_DEFINITION]
+
+Assign one overall difficulty level from 1 (very easy) to 5 (very difficult). Judge only the visible image and the demands created by the objects and scene. Do not predict the performance of a particular model, and do not consider training data, required accuracy, or other requirements that cannot be observed in the image.
+
+Relevant objects are object instances that would reasonably need to be handled for the stated task. Conditions that affect only irrelevant background regions must not increase the level.
+
+Evaluate the image using these three dimensions:
+
+1. Visual evidence difficulty: This dimension measures how clearly the relevant objects are visually presented. Consider blur, noise, compression artifacts, exposure, illumination, target-to-background contrast, object size relative to the image, visible detail, occlusion, and truncation. Judge resolution through the detail available for the relevant objects, not from the total pixel dimensions of the image.
+
+2. Scene and instance complexity: This dimension measures how much relevant visual content must be processed and how difficult it is to separate individual instances. Consider the number and density of relevant objects, background clutter, distractors, object diversity, crowding, object-object overlap, and ambiguity about where one instance ends and another begins. Do not treat object count alone as sufficient: many clearly separated objects and a few strongly overlapping objects present different forms of demand.
+
+3. Object interpretation demand: This dimension measures how difficult it is to interpret the visible object evidence. Consider unusual pose, orientation, viewpoint, foreshortening, deformation, atypical appearance, dependence on scene context, and ambiguity between plausible interpretations. For object detection, also consider difficulty distinguishing between applicable object categories. For localization, ignore fine-grained category distinctions and consider this dimension only insofar as appearance makes object presence, objectness, or spatial extent ambiguous.
+
+Use the following anchors to assess the three dimensions. The conditions listed at a level are alternatives and examples; an image does not need to exhibit all of them.
+
+Level 5:
+- Visual evidence: Extreme degradation, exceptionally small targets, or near-complete occlusion or truncation leaves critical object evidence missing or highly ambiguous.
+- Scene and instance complexity: Extreme density, clutter, crowding, or overlap makes numerous instances difficult to distinguish or spatially separate.
+- Object interpretation: The visible evidence supports multiple serious interpretations, object presence or extent is fundamentally ambiguous, or, for detection, applicable categories cannot be distinguished without extensive context and remain uncertain.
+
+Level 4:
+- Visual evidence: Strong blur, noise, adverse illumination, weak contrast, very small object size, substantial occlusion, or truncation removes important evidence, while the relevant objects remain meaningfully interpretable.
+- Scene and instance complexity: The scene is dense or heavily cluttered, contains many relevant objects or distractors, or has substantial crowding and overlap that makes instance separation difficult.
+- Object interpretation: Strongly atypical presentation, unusual viewpoint, deformation, context dependence, or similarity between plausible interpretations makes object understanding difficult and leaves limited decisive evidence.
+
+Level 3:
+- Visual evidence: Moderate degradation, reduced target detail, smaller objects, partial occlusion, or truncation affects interpretation, but sufficient evidence remains visible.
+- Scene and instance complexity: A moderate number or density of objects, noticeable clutter, distractors, or some overlap requires careful attention, although most instances remain separable.
+- Object interpretation: Noncanonical pose, viewpoint, deformation, appearance, or context introduces genuine uncertainty, but the visible evidence normally resolves the plausible interpretations.
+
+Level 2:
+- Visual evidence: Minor blur, noise, lighting variation, reduced contrast, modest object size, or minor occlusion or truncation is present, but the relevant visual evidence remains clear.
+- Scene and instance complexity: The scene contains a small or moderately sparse set of objects, light clutter or distractors, and little overlap. Instances remain easy to separate.
+- Object interpretation: Objects remain familiar and readily interpretable, with only small variations in pose, viewpoint, appearance, or context and little plausible ambiguity.
+
+Level 1: 
+- Visual evidence: The image is sharp and appropriately exposed. Relevant objects are large enough to retain clear detail, have strong visibility and contrast, and have no occlusion or truncation.
+- Scene and instance complexity: There are few relevant objects, the background is simple, and instances are clearly separated with unambiguous boundaries.
+- Object interpretation: Objects have familiar, canonical appearances and viewpoints. Their presence and their categories are evident from local appearance without contextual reasoning or fine-grained distinctions.
+
+
+Determine the single overall level using both the strongest demand and the accumulation of demands:
+
+- Level 5: at least one dimension has extreme demand, or at least two dimensions have severe demand.
+- Level 4: at least one dimension has severe demand, or at least two dimensions have moderate demand.
+- Level 3: at least one dimension has moderate demand, or at least two dimensions have mild demand.
+- Level 2: one dimension has mild demand and the other dimensions are negligible.
+- Level 1: all three dimensions have negligible demand.
+
+Use the lowest level whose stated evidence and combination rule fully describe the image. Do not increase the score merely because a difficult condition exists somewhere in the image; it must materially affect objects relevant to [TASK].
+
+Return only one natural number: 1, 2, 3, 4, or 5. Do not return an explanation, label, prefix, punctuation, or additional text.
+
+[TARGET_IMAGE]

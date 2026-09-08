@@ -228,3 +228,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Downloaded and prepared COCO-ReM annotations
+/outputs/datasets/

@@ -1,5 +1,5 @@
 seed = 16
-manifest_dir = "data/splits"
+manifest_dir = "data/splits/coco-rem"
 
 [partitions.calibration]
 source_split = "train"
@@ -13,15 +13,8 @@ samples_per_dataset = 2000
 source_split = "validation"
 samples_per_dataset = "all"
 
-[datasets.coco-2017]
-type = "fiftyone_zoo"
+[datasets.coco-rem]
+type = "coco_rem"
 name = "coco-2017"
-
-[datasets.voc-2007]
-type = "fiftyone_zoo"
-name = "voc-2007"
-
-[datasets.driving]
-type = "coco"
-train_path = "../vision_datasets/self-driving-car-v2-split/train"
-validation_path = "../vision_datasets/self-driving-car-v2-split/validation"
+train_annotations = "outputs/datasets/coco-rem/instances_trainrem_bbox.json"
+validation_annotations = "outputs/datasets/coco-rem/instances_valrem_bbox.json"
