@@ -112,7 +112,7 @@ def dataset_seed(dataset_name, split_config):
 def _load_full_dataset(dataset_name, source_split, split_config, limit_zoo_train=False):
     dataset_config = split_config["datasets"][dataset_name]
     dataset_type = dataset_config["type"]
-    if dataset_type == "fiftyone_zoo":
+    if dataset_type in {"fiftyone_zoo", "coco_rem"}:
         options = {}
         if source_split == "train" and limit_zoo_train:
             options = {
@@ -120,7 +120,23 @@ def _load_full_dataset(dataset_name, source_split, split_config, limit_zoo_train
                 "shuffle": True,
                 "seed": dataset_seed(dataset_name, split_config),
             }
-        return foz.load_zoo_dataset(dataset_config["name"], split=source_split, **options)
+        dataset = foz.load_zoo_dataset(dataset_config["name"], split=source_split, **options)
+        if dataset_type == "coco_rem":
+            labels_path = resolve_repo_path(dataset_config[f"{source_split}_annotations"])
+            if not labels_path.is_file():
+                raise FileNotFoundError(f"Missing {labels_path}; run scripts/preparation/prepare_coco_rem.py first")
+            filepaths = dataset.values("filepath")
+            return fo.Dataset.from_dir(
+                dataset_type=fo.types.COCODetectionDataset,
+                data_path={Path(filepath).name: filepath for filepath in filepaths},
+                labels_path=str(labels_path),
+                image_ids=[int(Path(filepath).stem) for filepath in filepaths],
+                label_types="detections",
+                label_field={"detections": "ground_truth", "coco_id": "coco_id"},
+                include_id=True,
+                include_annotation_id=True,
+            )
+        return dataset
     if dataset_type == "coco":
         data_path = resolve_repo_path(dataset_config[f"{source_split}_path"])
         labels_path = data_path / "_annotations.coco.json"

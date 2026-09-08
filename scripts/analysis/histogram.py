@@ -45,12 +45,12 @@ args = parser.parse_args()
 
 dataset = args.dataset
 
-if dataset == "coco-2017":
+if dataset in {"coco-2017", "coco-rem"}:
     term = "supercategory"
 elif dataset == "voc-2007"or dataset=="driving":
     term = "label"
 
-PREDEFINED_DATASETS = ["coco-2017","voc-2007"]
+PREDEFINED_DATASETS = ["coco-2017","voc-2007","coco-rem"]
 
 predefined = dataset in PREDEFINED_DATASETS
 

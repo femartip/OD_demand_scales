@@ -29,8 +29,7 @@ def build_prompt_content(prompt_text, image_dir):
   return content
 
 parser = argparse.ArgumentParser()
-#parser.add_argument("dataset", choices=("coco-2017", "voc-2007", "driving"))
-parser.add_argument("dataset", choices=("coco-ReM"))
+parser.add_argument("dataset", choices=("coco-2017", "voc-2007", "driving", "coco-rem"))
 parser.add_argument("task", choices=("detection", "localization"))
 parser.add_argument("version", type=int)
 parser.add_argument("prompt_strategy", choices=PROMPT_STRATEGIES)

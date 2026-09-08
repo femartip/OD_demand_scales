@@ -7,7 +7,7 @@ from pathlib import Path
 import argparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from common.experiment import (PARTITIONS,PROMPT_STRATEGIES,annotations_dir,load_manifest,)
+from common.experiment import (PARTITIONS,PROMPT_STRATEGIES,annotations_dir,load_manifest,split_config_for_version,)
 
 
 parser = argparse.ArgumentParser()
@@ -25,7 +25,8 @@ folder_path = annotations_dir(version, args.partition)
 os.makedirs(folder_path, exist_ok=True)
 
 excluded_datasets = []
-datasets = ["coco-2017", "voc-2007", "driving"]
+datasets = ["coco-2017", "voc-2007", "driving", "coco-rem"]
+split_config = split_config_for_version(version)
 
 csv_files = sorted(glob.glob(os.path.join(folder_path,f'v{version}_{task}_{prompt_strategy}_labelled_images_*.csv',)))
 
@@ -40,9 +41,9 @@ for file in csv_files:
     if dataset is None:
         raise ValueError(f"Could not determine dataset from {file_name_with_extension}")
 
-    if dataset not in excluded_datasets:
+    if dataset not in excluded_datasets and dataset in split_config["datasets"]:
         df = pd.read_csv(file, delimiter=";", dtype={'image_id': object})
-        allowed_ids = set(load_manifest(args.partition, dataset)["image_id"])
+        allowed_ids = set(load_manifest(args.partition, dataset, split_config)["image_id"])
         outside_partition = set(df["image_id"].astype(str)) - allowed_ids
         if outside_partition:
             raise ValueError(f"{file} contains {len(outside_partition)} images outside {args.partition}")
