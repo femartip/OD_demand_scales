@@ -52,7 +52,7 @@ transformer_confidence_threshold = (args.transformer_confidence_threshold if arg
 datasets = list(split_config["datasets"])
 
 for dataset_name in datasets:
-    if dataset_name in ["voc-2007", "coco-2017"]:
+    if dataset_name in ["voc-2007", "coco-2017", "coco_rem"]:
         predefined = True
     else:
         predefined = False

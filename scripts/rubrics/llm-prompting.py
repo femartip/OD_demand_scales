@@ -29,7 +29,8 @@ def build_prompt_content(prompt_text, image_dir):
   return content
 
 parser = argparse.ArgumentParser()
-parser.add_argument("dataset", choices=("coco-2017", "voc-2007", "driving"))
+#parser.add_argument("dataset", choices=("coco-2017", "voc-2007", "driving"))
+parser.add_argument("dataset", choices=("coco-ReM"))
 parser.add_argument("task", choices=("detection", "localization"))
 parser.add_argument("version", type=int)
 parser.add_argument("prompt_strategy", choices=PROMPT_STRATEGIES)
@@ -45,17 +46,8 @@ max_samples = args.max_samples
 max_label_attempts = args.max_label_attempts
 task_to_evaluate = args.task
 
-if task_to_evaluate == "localization":
-   task = "localization"
-   task_definition = "Localization consists of determining the position of the objects in a given image, i.e. generating a rectangular bounding box that tightly frames each detected object"
-
-elif task_to_evaluate == "detection":
-   task = "object detection"
-   task_definition = "Object detection consists of determining the position of the objects in a given image, i.e. generating a rectangular bounding box that tightly frames each detected object and then establishing which of the available categories each one belongs to"
-
-else:
-   print("Not implemented")
-   sys.exit(1)
+task = "object detection"
+task_definition = "Object detection consists of determining the position of the objects in a given image, i.e. generating a rectangular bounding box that tightly frames each detected object and then establishing which of the available categories each one belongs to"
 
 version = args.version
 experiment_config = load_experiment_config(version)
