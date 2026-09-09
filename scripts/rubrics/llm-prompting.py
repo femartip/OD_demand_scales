@@ -30,7 +30,7 @@ def build_prompt_content(prompt_text, image_dir):
 
 parser = argparse.ArgumentParser()
 parser.add_argument("dataset", choices=("coco-2017", "voc-2007", "driving", "coco-rem"))
-parser.add_argument("task", choices=("detection", "localization"))
+#parser.add_argument("task", choices=("detection", "localization"))
 parser.add_argument("version", type=int)
 parser.add_argument("prompt_strategy", choices=PROMPT_STRATEGIES)
 parser.add_argument("--partition", required=True, choices=PARTITIONS)
@@ -43,7 +43,7 @@ args = parser.parse_args()
 dataset = args.dataset
 max_samples = args.max_samples
 max_label_attempts = args.max_label_attempts
-task_to_evaluate = args.task
+task_to_evaluate = "detection"
 
 task = "object detection"
 task_definition = "Object detection consists of determining the position of the objects in a given image, i.e. generating a rectangular bounding box that tightly frames each detected object and then establishing which of the available categories each one belongs to"
@@ -109,9 +109,9 @@ with open(destination_path, 'a', newline='', encoding='utf-8') as CSV_file:
     if not labelled_prev:
       writer_CSV.writerow(['image_id', 'level'])
 
-    for _, row in image_ids.iterrows():
+    for num, row in image_ids.iterrows():
         image_id = str(row["image_id"])
-        print(image_id)
+        print(f"{image_id}: {num/image_ids.shape[0]}")
 
         if image_id in already_labelled:
           print("Labelled!")

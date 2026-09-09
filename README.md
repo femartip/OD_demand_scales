@@ -42,10 +42,10 @@ masks remain available in the downloaded release archives.
 
 ## Dataset partitions
 
-The existing COCO image selections are preserved:
+The active ReM sampling protocol uses seed 16 and no detector outcomes:
 
-- `calibration`: 500 training images
-- `mllm_selection`: 2,000 different training images
+- `calibration`: 1,000 random training images plus 500 selected by observable properties
+- `mllm_selection`: 6,000 random training images reserved first, excluding prior calibration IDs
 - `locked_confirmation`: all 5,000 validation images
 
 `configs/splits.toml` defines these global, version-independent partitions. Their
@@ -64,8 +64,15 @@ This downloads the official train and validation releases into
 SHA-256 hashes, corrected-box counts, and omitted annotation IDs. Existing release
 ZIPs are reused. Use `--split train` or `--split validation` to prepare one split.
 
-The checked-in manifests already preserve the existing selections. For a fresh
-selection, obtain the COCO images through FiftyOne and generate manifests with:
+The supplementary calibration sample contains 100 images each for small typical
+object size, many objects, high box overlap, many categories, and crowd presence.
+The first four use fixed 10% tail rules. Selection is random within these groups,
+without duplicate images. Manifests retain
+`selection_group` and observable feature columns; `sampling_summary.json` records
+thresholds and annotation hashes.
+
+The generator samples the full ReM annotation inventory, then downloads only the
+selected images. Generate all three partitions together:
 
 ```bash
 poetry run python scripts/preparation/get_image_ids.py --partition all

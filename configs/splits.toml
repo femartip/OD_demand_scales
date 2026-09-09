@@ -1,13 +1,13 @@
 seed = 16
-manifest_dir = "data/splits/coco-rem"
+manifest_dir = "data/splits"
 
 [partitions.calibration]
 source_split = "train"
-samples_per_dataset = 500
+samples_per_dataset = 1500
 
 [partitions.mllm_selection]
 source_split = "train"
-samples_per_dataset = 2000
+samples_per_dataset = 6000
 
 [partitions.locked_confirmation]
 source_split = "validation"
@@ -18,3 +18,9 @@ type = "coco_rem"
 name = "coco-2017"
 train_annotations = "outputs/datasets/coco-rem/instances_trainrem_bbox.json"
 validation_annotations = "outputs/datasets/coco-rem/instances_valrem_bbox.json"
+
+[datasets.coco-rem.calibration_sampling]
+random_samples = 1000
+samples_per_property = 100
+tail_fraction = 0.10
+overlap_threshold = 0.50

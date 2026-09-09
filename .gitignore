@@ -4,6 +4,7 @@ outputs/object_detection
 *.sh
 /outputs/logs
 .vscode
+data/datasets
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

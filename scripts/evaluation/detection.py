@@ -13,15 +13,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from common.experiment import (PARTITIONS, load_experiment_config, object_detection_dataset_dir,)
 
 
+# Equivalent COCO names emitted by some detector wrappers.
+COCO_LABEL_ALIASES = {
+    "aeroplane": "airplane",
+    "diningtable": "dining table",
+    "motorbike": "motorcycle",
+    "pottedplant": "potted plant",
+    "sofa": "couch",
+    "tvmonitor": "tv",
+}
+
 CLASS_MAPS = {
-    "voc-2007": {
-        "aeroplane": "airplane",
-        "diningtable": "dining table",
-        "motorbike": "motorcycle",
-        "pottedplant": "potted plant",
-        "sofa": "couch",
-        "tvmonitor": "tv",
-    },
+    "voc-2007": COCO_LABEL_ALIASES,
     "driving": {
         "biker": "bicycle",
         "pedestrian": "person",
@@ -37,7 +40,8 @@ CLASS_MAPS = {
 
 
 def normalize_label(dataset, label):
-    return CLASS_MAPS.get(dataset, {}).get(label, label)
+    label = CLASS_MAPS.get(dataset, {}).get(label, label)
+    return COCO_LABEL_ALIASES.get(label, label)
 
 
 def set_labels(sample, field_name, label_fn):

@@ -28,7 +28,10 @@ excluded_datasets = []
 datasets = ["coco-2017", "voc-2007", "driving", "coco-rem"]
 split_config = split_config_for_version(version)
 
-csv_files = sorted(glob.glob(os.path.join(folder_path,f'v{version}_{task}_{prompt_strategy}_labelled_images_*.csv',)))
+# Annotation is done once per image with the detection task wording; both the
+# detection and localization analyses read that same shared file.
+annotation_task = "detection"
+csv_files = sorted(glob.glob(os.path.join(folder_path,f'v{version}_{annotation_task}_{prompt_strategy}_labelled_images_*.csv',)))
 
 data_frames = []
 
@@ -51,7 +54,7 @@ for file in csv_files:
         data_frames.append(df)
 
 if not data_frames:
-    raise RuntimeError(f"No {task} annotation files found in {folder_path}")
+    raise RuntimeError(f"No {annotation_task} annotation files found in {folder_path}")
 
 combined_df = pd.concat(data_frames, ignore_index=True)
 combined_df["partition"] = args.partition

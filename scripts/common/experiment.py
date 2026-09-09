@@ -55,10 +55,7 @@ def manifest_path(partition, split_config=None):
 def load_manifest(partition, dataset=None, split_config=None):
     path = manifest_path(partition, split_config)
     if not path.is_file():
-        raise FileNotFoundError(
-            f"Partition manifest not found: {path}. Generate it with "
-            f"`poetry run python scripts/preparation/get_image_ids.py --partition {partition}`."
-        )
+        raise FileNotFoundError(f"Partition manifest not found: {path}. Generate it with `poetry run python scripts/preparation/get_image_ids.py --partition {partition}`.")
     manifest = pd.read_csv(path, dtype={"image_id": str, "source_group_id": str})
     required = {"dataset", "image_id", "filepath", "source_split", "partition", "source_group_id"}
     missing = required - set(manifest.columns)
@@ -109,48 +106,35 @@ def dataset_seed(dataset_name, split_config):
     return int(split_config["seed"]) + dataset_names.index(dataset_name)
 
 
-def _load_full_dataset(dataset_name, source_split, split_config, limit_zoo_train=False):
+def _load_full_dataset(dataset_name, source_split, split_config, limit_zoo_train=False, image_ids=None):
     dataset_config = split_config["datasets"][dataset_name]
     dataset_type = dataset_config["type"]
     if dataset_type in {"fiftyone_zoo", "coco_rem"}:
         options = {}
-        if source_split == "train" and limit_zoo_train:
-            options = {
-                "max_samples": training_pool_size(split_config),
-                "shuffle": True,
-                "seed": dataset_seed(dataset_name, split_config),
-            }
-        dataset = foz.load_zoo_dataset(dataset_config["name"], split=source_split, **options)
+        if image_ids is not None:
+            options = {"image_ids": [int(image_id) for image_id in image_ids]}
+        elif source_split == "train" and limit_zoo_train:
+            options = {"max_samples": training_pool_size(split_config),"shuffle": True,"seed": dataset_seed(dataset_name, split_config),}
+        if dataset_type == "coco_rem" and image_ids is not None:
+            image_dir = Path(fo.config.dataset_zoo_dir) / dataset_config["name"] / source_split / "data"
+            filepaths = [str(image_dir / f"{int(image_id):012d}.jpg") for image_id in image_ids]
+            if any(not Path(filepath).is_file() for filepath in filepaths):
+                foz.download_zoo_dataset(dataset_config["name"], split=source_split, **options)
+        else:
+            dataset = foz.load_zoo_dataset(dataset_config["name"], split=source_split, **options)
+            filepaths = dataset.values("filepath")
         if dataset_type == "coco_rem":
             labels_path = resolve_repo_path(dataset_config[f"{source_split}_annotations"])
             if not labels_path.is_file():
                 raise FileNotFoundError(f"Missing {labels_path}; run scripts/preparation/prepare_coco_rem.py first")
-            filepaths = dataset.values("filepath")
-            return fo.Dataset.from_dir(
-                dataset_type=fo.types.COCODetectionDataset,
-                data_path={Path(filepath).name: filepath for filepath in filepaths},
-                labels_path=str(labels_path),
-                image_ids=[int(Path(filepath).stem) for filepath in filepaths],
-                label_types="detections",
-                label_field={"detections": "ground_truth", "coco_id": "coco_id"},
-                include_id=True,
-                include_annotation_id=True,
-            )
+            return fo.Dataset.from_dir(dataset_type=fo.types.COCODetectionDataset,data_path={Path(filepath).name: filepath for filepath in filepaths},labels_path=str(labels_path),image_ids=[int(Path(filepath).stem) for filepath in filepaths],label_types="detections",label_field={"detections": "ground_truth", "coco_id": "coco_id"},include_id=True,include_annotation_id=True,)
         return dataset
     if dataset_type == "coco":
         data_path = resolve_repo_path(dataset_config[f"{source_split}_path"])
         labels_path = data_path / "_annotations.coco.json"
         if not data_path.is_dir() or not labels_path.is_file():
-            raise FileNotFoundError(
-                f"Expected {dataset_name} {source_split} COCO dataset at {data_path} "
-                f"with annotations at {labels_path}"
-            )
-        return fo.Dataset.from_dir(
-            dataset_type=fo.types.COCODetectionDataset,
-            data_path=str(data_path),
-            labels_path=str(labels_path),
-            include_id=True,
-        )
+            raise FileNotFoundError(f"Expected {dataset_name} {source_split} COCO dataset at {data_path} with annotations at {labels_path}")
+        return fo.Dataset.from_dir(dataset_type=fo.types.COCODetectionDataset,data_path=str(data_path),labels_path=str(labels_path),include_id=True,)
     raise ValueError(f"Unsupported dataset type for {dataset_name}: {dataset_type}")
 
 
@@ -159,12 +143,7 @@ def load_partition_dataset(dataset_name, partition, version):
     partition_config = split_config["partitions"][partition]
     source_split = partition_config["source_split"]
     manifest = load_manifest(partition, dataset_name, split_config)
-    dataset = _load_full_dataset(
-        dataset_name,
-        source_split,
-        split_config,
-        limit_zoo_train=True,
-    )
+    dataset = _load_full_dataset(dataset_name,source_split,split_config,limit_zoo_train=True,image_ids=manifest["image_id"].tolist() if split_config["datasets"][dataset_name]["type"] == "coco_rem" else None,)
 
     wanted_ids = set(manifest["image_id"].astype(str))
     sample_ids = []
@@ -178,13 +157,8 @@ def load_partition_dataset(dataset_name, partition, version):
     missing = wanted_ids - found_ids
     if missing:
         preview = ", ".join(sorted(missing)[:5])
-        raise RuntimeError(
-            f"{len(missing)} manifest images were not found in {dataset_name} {source_split}; "
-            f"first missing IDs: {preview}"
-        )
+        raise RuntimeError(f"{len(missing)} manifest images were not found in {dataset_name} {source_split}; first missing IDs: {preview}")
     view = dataset.select(sample_ids)
     if len(view) != len(manifest):
-        raise RuntimeError(
-            f"Loaded {len(view)} {dataset_name} samples but manifest contains {len(manifest)} rows"
-        )
+        raise RuntimeError(f"Loaded {len(view)} {dataset_name} samples but manifest contains {len(manifest)} rows")
     return view

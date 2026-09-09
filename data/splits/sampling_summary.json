@@ -1,0 +1,40 @@
+{
+  "coco-rem": {
+    "seed": 16,
+    "training_pool": 118287,
+    "threshold_reference_pool": 112287,
+    "criteria": {
+      "random_samples": 1000,
+      "samples_per_property": 100,
+      "tail_fraction": 0.1,
+      "overlap_threshold": 0.5
+    },
+    "thresholds": {
+      "median_relative_box_area": 0.0019898034037558686,
+      "object_count": 20.0,
+      "overlap_fraction": 1.0,
+      "category_count": 5.0
+    },
+    "eligible_supplementary_counts": {
+      "small_objects": 11038,
+      "many_objects": 11682,
+      "high_overlap": 22047,
+      "many_categories": 19070,
+      "crowd": 6321
+    },
+    "calibration_counts": {
+      "random": 1000,
+      "small_objects": 100,
+      "many_objects": 100,
+      "high_overlap": 100,
+      "many_categories": 100,
+      "crowd": 100
+    },
+    "mllm_selection_count": 6000,
+    "prior_calibration_excluded_from_mllm": 500,
+    "annotation_sha256": {
+      "train": "00cca4485ed7de2040b32fddfa8160d521abf054d733655b86260bc2c4f66e77",
+      "validation": "16a44d5e516bc25d9172aaa8cae35bf705706fd14fab5e60c8413f13d82e8c27"
+    }
+  }
+}
