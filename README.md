@@ -158,22 +158,35 @@ The annotation script uses a local OpenAI-compatible `llama-server`.
 Hugging Face model installation:
 
 ```bash
-poetry run hf download DavidAU/Qwen3.6-27B-Fable-Fusion-711-Uncensored-Heretic-NM-DAU-NEO-MAX-MTP-GGUF \
-  Qwen3.6-27B-Fable-Fus-711-UnHeretic-NM-DAU-NEO-MAX-NEO-MTP-Q6_K.gguf \
-  mmproj-F16.gguf \
-  --local-dir ../data/models/qwen3.6-27b-q6
+poetry run hf download bartowski/Qwen3.8-27B-GGUF \
+  Qwen3.8-27B-Q5_K_M.gguf \
+  mmproj-Qwen3.8-27B-f16.gguf \
+  --local-dir ../data/models/qwen3.8-27b-q5
 ```
 
 Start the local vision server in a separate terminal:
 
 ```bash
 llama-server \
-  -m ../data/models/qwen3.6-27b-q6/Qwen3.6-27B-Fable-Fus-711-UnHeretic-NM-DAU-NEO-MAX-NEO-MTP-Q6_K.gguf \
-  --mmproj ../data/models/qwen3.6-27b-q6/mmproj-F16.gguf \
+  -m ../data/models/qwen3.8-27b-q5/Qwen3.8-27B-Q5_K_M.gguf \
+  --mmproj ../data/models/qwen3.8-27b-q5/mmproj-Qwen3.8-27B-f16.gguf \
   -ngl 999 \
-  -c 16384 \
+  -np 4 \
+  -c 65536 \
+  -fa on \
+  --image-min-tokens 1024 \
+  --reasoning-budget 10000 \
+  --reasoning-budget-message "I have gathered enough evidence. I will now state the single overall level." \
   --host 127.0.0.1 \
   --port 8080
+```
+
+Reasoning is enabled for every assessment. 
+
+Annotate a partition with:
+
+```bash
+poetry run python scripts/rubrics/llm-prompting.py coco-rem 17 zeroshot --partition calibration --workers 4
 ```
 
 The annotation script reads image IDs and paths from the selected global manifest. Its

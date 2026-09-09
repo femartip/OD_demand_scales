@@ -2,9 +2,11 @@ import os
 import requests
 import base64
 import csv
+import concurrent.futures
 import pandas as pd
 import re
 import sys
+import threading
 import argparse
 from pathlib import Path
 
@@ -38,6 +40,7 @@ parser.add_argument("--max-samples", type=int, default=int(os.environ["MAX_SAMPL
 parser.add_argument("--max-label-attempts", type=int, default=int(os.environ.get("MAX_LABEL_ATTEMPTS", 5)), )
 parser.add_argument("--overwrite", action="store_true", help="Replace this model's existing annotation file instead of resuming it", )
 parser.add_argument("--validate-prompt", action="store_true", help="Validate the configured prompt and examples without contacting the model",)
+parser.add_argument("--workers", type=int, default=1, help="Concurrent annotation requests; keep at or below the llama-server --parallel slot count, and size -c for workers x per-request context",)
 args = parser.parse_args()
 
 dataset = args.dataset
@@ -52,9 +55,38 @@ version = args.version
 experiment_config = load_experiment_config(version)
 split_config = split_config_for_version(version)
 
-MODEL_ID = "DavidAU/Qwen3.6-27B-Fable-Fusion-711-Uncensored-Heretic-NM-DAU-NEO-MAX-MTP-GGUF"
-MODEL_NAME = "qwen3.6-27b-q6"
+MODEL_ID = "bartowski/Qwen3.8-27B-GGUF"
+MODEL_NAME = "qwen3.8-27b-q5"
 MODEL_ENDPOINT = os.environ.get("MODEL_ENDPOINT", "http://127.0.0.1:8080/v1/chat/completions")
+
+# Reasoning stays enabled for every assessment. On some borderline images the
+# model enters an unbounded self-verification loop, exhausts the context window
+# and returns no level at all (19 of the first 667 v16 calibration rows, 2.8%).
+# The loop is bounded server-side with --reasoning-budget, which closes the
+# thinking block and lets the model state its level; see the llama-server command
+# in README.md. This client-side cap only bounds the cost of one request, so a
+# runaway ends in ~3 minutes instead of consuming the whole window.
+# Must exceed the server --reasoning-budget so the level still fits after the
+# thinking block is closed; otherwise the answer itself gets truncated.
+MAX_REASONING_TOKENS = int(os.environ.get("MAX_REASONING_TOKENS", 12000))
+VALID_LEVELS = {"1", "2", "3", "4", "5"}
+
+
+def parse_level(text):
+  """Accept only an unambiguous level, so a cut-off reasoning trace can never be stored as one."""
+  text = (text or "").strip()
+  if text in VALID_LEVELS:
+    return text
+  match = re.fullmatch(r"[^\d]*([1-5])[^\d]*", text)
+  return match.group(1) if match else None
+
+
+def request_level(payload):
+  response = requests.post(MODEL_ENDPOINT, headers={"Content-Type": "application/json"}, json=payload, timeout=900)
+  response.raise_for_status()
+  choice = response.json()["choices"][0]
+  message = choice["message"]
+  return (parse_level(message.get("content")), choice.get("finish_reason"), (message.get("reasoning_content") or ""),)
 image_ids = load_manifest(args.partition, dataset, split_config)
 if max_samples is not None:
   if max_samples < 1:
@@ -103,41 +135,50 @@ if args.validate_prompt:
   print(f"Valid {args.prompt_strategy} prompt for v{version}: {prompt_path}")
   sys.exit(0)
 
+def annotate_image(image_id, image_path):
+  if not image_path.is_file():
+    raise FileNotFoundError(f"Manifest image not found: {image_path}")
+  encoded_image = encode_image(image_path)
+  payload = {"model": MODEL_ID, "messages": [{"role": "system","content": system_content,},{"role": "user","content": [{"type": "image_url","image_url": {"url": f"data:image/jpeg;base64,{encoded_image}"}},{"type": "text","text": user_prompt,},]},],"temperature": 0,"top_p": 0.95,"max_tokens": MAX_REASONING_TOKENS,"chat_template_kwargs": {"enable_thinking": True}}
+  # Retrying the identical request is worth doing here: reasoning length varies
+  # widely between calls even at temperature 0 (750 to 8,550 tokens observed for
+  # one image), so a repeat attempt can terminate where the previous one did not.
+  for attempt in range(max_label_attempts):
+    level, finish_reason, _ = request_level(payload)
+    if level is not None:
+      return image_id, level
+    print(f"No level returned for {image_id} (finish_reason={finish_reason}). Attempt {attempt + 1}/{max_label_attempts}.")
+  print(f"Could not obtain a valid level for {image_id}; recording it as missing.")
+  return image_id, None
+
+
+pending = [(str(row["image_id"]), Path(row["filepath"])) for _, row in image_ids.iterrows() if str(row["image_id"]) not in already_labelled]
+print(f"{len(pending)} of {len(image_ids)} images need annotation, using {args.workers} worker(s)")
+
 with open(destination_path, 'a', newline='', encoding='utf-8') as CSV_file:
     writer_CSV = csv.writer(CSV_file, delimiter=';')
 
     if not labelled_prev:
       writer_CSV.writerow(['image_id', 'level'])
+      CSV_file.flush()
 
-    for num, row in image_ids.iterrows():
-        image_id = str(row["image_id"])
-        print(f"{image_id}: {num/image_ids.shape[0]}")
-
-        if image_id in already_labelled:
-          print("Labelled!")
-          continue
-
-        IMAGE_PATH = Path(row["filepath"])
-        if not IMAGE_PATH.is_file():
-          raise FileNotFoundError(f"Manifest image not found: {IMAGE_PATH}")
-        encoded_image = encode_image(IMAGE_PATH)
-        headers = {"Content-Type": "application/json"}
-
-        # Payload for the request
-        payload = {"model": MODEL_ID, "messages": [{"role": "system","content": system_content,},{"role": "user","content": [{"type": "image_url","image_url": {"url": f"data:image/jpeg;base64,{encoded_image}"}},{"type": "text","text": user_prompt,},]},],"temperature": 0,"top_p": 0.95,"chat_template_kwargs": {"enable_thinking": True}}
-        final_text = ""
-        for attempt in range(max_label_attempts):
-          response = requests.post(MODEL_ENDPOINT, headers=headers, json=payload, timeout=600)
-          response.raise_for_status()
-          content = response.json()['choices'][0]["message"]["content"]
-          final_text = content.strip() if content is not None else ""
-          if final_text and final_text.lower() != "nan":
-            break
-          print(f"No level returned for {image_id}. Attempt {attempt + 1}/{max_label_attempts}.")
-
-        if not final_text or final_text.lower() == "nan":
-          final_text = None
-        writer_CSV.writerow([image_id, final_text])
+    # Rows are written in completion order rather than manifest order, and flushed
+    # immediately so an interrupted run keeps every finished annotation. The dedup
+    # pass below still keys on image_id, and every downstream merge joins on it.
+    write_lock = threading.Lock()
+    completed = 0
+    pool = concurrent.futures.ThreadPoolExecutor(max_workers=args.workers)
+    try:
+      futures = [pool.submit(annotate_image, image_id, image_path) for image_id, image_path in pending]
+      for future in concurrent.futures.as_completed(futures):
+        image_id, level = future.result()
+        with write_lock:
+          writer_CSV.writerow([image_id, level])
+          CSV_file.flush()
+          completed += 1
+          print(f"{completed}/{len(pending)} {image_id}: {level}")
+    finally:
+      pool.shutdown(cancel_futures=True)
 
 
 # A retried image may already have a blank row in the CSV. Move the latest valid
