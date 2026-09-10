@@ -31,11 +31,12 @@ evaluation_dir = object_detection_root(args.partition)
 
 if task == "detection":
     display_name = "Object Detection"
-    df = pd.read_csv(evaluation_dir / "detection_difficulty.csv", dtype={'image_id': object},usecols=["dataset", "image_id", "accuracy", "model"],)
+    df = pd.read_csv(evaluation_dir / "detection_difficulty.csv", dtype={'image_id': object},usecols=["dataset", "image_id", "detection_quality", "model"],)
+    df = df.rename(columns={"detection_quality": "score"})
 elif task == "localization":
     display_name = "Localization"
-    df = pd.read_csv(evaluation_dir / "detection_difficulty.csv", dtype={'image_id': object},usecols=["dataset", "image_id", "accuracy_detection", "model"],)
-    df = df.rename(columns={"accuracy_detection":"accuracy"})
+    df = pd.read_csv(evaluation_dir / "detection_difficulty.csv", dtype={'image_id': object},usecols=["dataset", "image_id", "localization_quality", "model"],)
+    df = df.rename(columns={"localization_quality": "score"})
 else:
     sys.exit(1)
 
@@ -121,16 +122,16 @@ for family, family_models in model_families.items():
         final = final.dropna()
         final = final[(final['level'] >= 1) & (final['level'] <= 5)]
 
-        avg_trend = final.groupby('level')['accuracy'].mean().reset_index()
+        avg_trend = final.groupby('level')['score'].mean().reset_index()
         avg_trend['level'] = avg_trend['level'].astype(str)
         print(f"{family_display_names[family]} / {model}\n{avg_trend}")
 
-        plt.plot(avg_trend['level'], avg_trend['accuracy'], color=color_dict.get(model), linewidth=2, label=f'{model}',marker='o')
+        plt.plot(avg_trend['level'], avg_trend['score'], color=color_dict.get(model), linewidth=2, label=f'{model}',marker='o')
 
     plt.legend(loc='upper left', bbox_to_anchor=(1, 1))
     plt.xlabel(f'{display_name} demand level')
-    plt.ylabel(f'{display_name} accuracy')
-    plt.title(f'{family_display_names[family]} {display_name} Accuracy by Demand Level — {strategy_display} ({args.partition})')
+    plt.ylabel(f'{display_name} quality')
+    plt.title(f'{family_display_names[family]} {display_name} Quality by Demand Level — {strategy_display} ({args.partition})')
     plt.subplots_adjust(right=0.7)
     plt.savefig(figure_dir / f"v{version}_{family}_{task}_{prompt_strategy}_accuracy_curves.pdf")
     plt.close()

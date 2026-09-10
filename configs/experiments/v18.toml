@@ -1,4 +1,4 @@
-version = 17
+version = 18
 split_config = "configs/splits.toml"
 
 [evaluation]
@@ -10,4 +10,4 @@ empty_union_score = 1.0
 transformer_confidence_threshold = 0.5
 
 [rubric]
-prompt_zeroshot = "data/prompts/17/zero_shot_prompt_1dim_rubric.txt"
+prompt_zeroshot = "data/prompts/18/zero_shot_prompt_1dim_rubric.txt"

@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import json
 import os
 import argparse
@@ -56,6 +57,12 @@ for dataset in all_paths:
                 temp_df.loc[i, "fp_detection"] = image['detection_fp']
                 temp_df.loc[i, "fn_detection"] = image['detection_fn']
 
+                # Sum the IoU of the matched predictions, so a true positive can be
+                # credited by how well its box fits instead of merely counted.
+                predictions = (image.get('predictions') or {}).get('detections', [])
+                temp_df.loc[i, "iou_sum"] = sum(p['mapped_detection_iou'] for p in predictions if p.get('mapped_detection') == 'tp' and p.get('mapped_detection_iou') is not None)
+                temp_df.loc[i, "iou_sum_detection"] = sum(p['localization_iou'] for p in predictions if p.get('localization') == 'tp' and p.get('localization_iou') is not None)
+
             actual_image_ids = set(temp_df["image_id"].astype(str))
             if actual_image_ids != expected_image_ids or len(temp_df) != len(expected_image_ids):
                 raise ValueError(f"{file_path} does not exactly match the {args.partition} manifest for {dataset}")
@@ -72,10 +79,19 @@ duplicate_key = ["dataset", "image_id", "model"]
 if df.duplicated(duplicate_key).any():
     raise ValueError(f"Duplicate evaluation rows found for {duplicate_key}")
 
-df["accuracy"] = df["tp"] / (df["tp"] + df["fn"] + df["fp"])
-df["accuracy_detection"] = df["tp_detection"] / (df["tp_detection"] + df["fn_detection"] + df["fp_detection"])
+df["detection_match_rate"] = df["tp"] / (df["tp"] + df["fn"] + df["fp"])
+df["localization_match_rate"] = df["tp_detection"] / (df["tp_detection"] + df["fn_detection"] + df["fp_detection"])
 
 df = df.fillna(float(experiment_config["evaluation"]["empty_union_score"]))
+
+# Quality scores credit each true positive by its IoU instead of counting it, so
+# detection_quality = detection_match_rate * (mean IoU of matched objects). That mean
+# IoU is not stored because it is exactly detection_quality / detection_match_rate.
+empty_union_score = float(experiment_config["evaluation"]["empty_union_score"])
+union = df["tp"] + df["fn"] + df["fp"]
+union_detection = df["tp_detection"] + df["fn_detection"] + df["fp_detection"]
+df["detection_quality"] = np.where(union > 0, df["iou_sum"] / union, empty_union_score)
+df["localization_quality"] = np.where(union_detection > 0, df["iou_sum_detection"] / union_detection, empty_union_score)
 
 
 os.makedirs(output_root, exist_ok=True)

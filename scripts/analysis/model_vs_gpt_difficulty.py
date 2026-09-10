@@ -29,11 +29,11 @@ evaluation_dir = object_detection_root(args.partition)
 
 
 if task == "detection":
-    metric = "accuracy"
+    metric = "detection_quality"
     display_name = "Object Detection"
     color = "#FF6859"
 elif task == "localization":
-    metric = "accuracy_detection"
+    metric = "localization_quality"
     display_name = "Localization"
     color = "skyblue"
 else:
@@ -85,15 +85,15 @@ avg_trend['level'] = avg_trend['level'].astype(str)
 
 print(avg_trend)
 
-plt.plot(avg_trend['level'], avg_trend[metric], color=color, linewidth=2, label=f'{display_name} Accuracy',marker='o')
+plt.plot(avg_trend['level'], avg_trend[metric], color=color, linewidth=2, label=f'{display_name} Quality',marker='o')
 
 
 
 
 
 plt.xlabel(f'{display_name} demand level')
-plt.ylabel(f'{display_name} accuracy')
-plt.title(f'Mean {display_name} Accuracy by Demand Level — {strategy_display} ({args.partition})')
+plt.ylabel(f'{display_name} quality')
+plt.title(f'Mean {display_name} Quality by Demand Level — {strategy_display} ({args.partition})')
 plt.legend()
 plt.savefig(figure_dir / f"v{version}_{task}_{prompt_strategy}_accuracy_curve.pdf")
 

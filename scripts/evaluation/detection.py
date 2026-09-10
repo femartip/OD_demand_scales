@@ -44,6 +44,17 @@ def normalize_label(dataset, label):
     return COCO_LABEL_ALIASES.get(label, label)
 
 
+# Per-detection outcome fields written by the two evaluation passes below.
+EVAL_FIELDS = ("mapped_detection","mapped_detection_id","mapped_detection_iou","localization","localization_id","localization_iou",)
+
+
+def detection_key(detection):
+    # from_dict converts these in place, so the id is a bson ObjectId by the time the
+    # assignments are copied back, not the {"$oid": ...} form json.load produced.
+    identifier = detection["_id"]
+    return identifier["$oid"] if isinstance(identifier, dict) else str(identifier)
+
+
 def set_labels(sample, field_name, label_fn):
     detections = sample[field_name]
     if detections is None:
@@ -71,8 +82,10 @@ def evaluate_with_fiftyone(data, dataset_name, ground_truth_field, iou_threshold
         dataset.evaluate_detections("predictions",gt_field=ground_truth_field,eval_key="localization",method="coco",iou=iou_threshold,classwise=True,compute_mAP=compute_map,progress=False,)
 
         counts_by_filepath = {}
+        assignments_by_filepath = {}
         for sample in dataset.iter_samples(progress=False):
-            counts_by_filepath[os.path.normpath(sample.filepath)] = {
+            path = os.path.normpath(sample.filepath)
+            counts_by_filepath[path] = {
                 "eval_coco_tp": sample.mapped_detection_tp,
                 "eval_coco_fp": sample.mapped_detection_fp,
                 "eval_coco_fn": sample.mapped_detection_fn,
@@ -80,10 +93,31 @@ def evaluate_with_fiftyone(data, dataset_name, ground_truth_field, iou_threshold
                 "detection_fp": sample.localization_fp,
                 "detection_fn": sample.localization_fn,
             }
+            assignments = {}
+            for field_name in (ground_truth_field, "predictions"):
+                detections = sample[field_name]
+                if detections is None:
+                    continue
+                for detection in detections.detections:
+                    outcome = {name: getattr(detection, name, None) for name in EVAL_FIELDS}
+                    assignments[detection.id] = {name: value for name, value in outcome.items() if value is not None}
+            assignments_by_filepath[path] = assignments
 
         for sample in data["samples"]:
-            counts = counts_by_filepath[os.path.normpath(sample["filepath"])]
-            sample.update(counts)
+            path = os.path.normpath(sample["filepath"])
+            sample.update(counts_by_filepath[path])
+
+            # Retain which ground truth each prediction matched, and at what IoU, so that
+            # misses, misclassifications and spurious boxes can be separated later. These
+            # are added alongside the existing per-sample counts, which are unchanged, so
+            # aggregate_evaluation_results.py and the analysis scripts are unaffected.
+            assignments = assignments_by_filepath[path]
+            for field_name in (ground_truth_field, "predictions"):
+                container = sample.get(field_name)
+                if not container:
+                    continue
+                for detection in container["detections"]:
+                    detection.update(assignments.get(detection_key(detection), {}))
     finally:
         dataset.delete()
 
