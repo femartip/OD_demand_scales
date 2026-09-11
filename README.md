@@ -228,3 +228,10 @@ curve for every available model size in that family:
 poetry run python scripts/analysis/permodel_vs_gpt_difficulty.py 17 detection zeroshot --partition calibration
 poetry run python scripts/analysis/permodel_vs_gpt_difficulty.py 17 localization zeroshot --partition calibration
 ```
+
+Compare rubric versions on predictive accuracy and failure detection:
+
+```bash
+poetry run python scripts/analysis/evaluate_rubrics.py 16 17 18 detection zeroshot --partition calibration
+```
+
