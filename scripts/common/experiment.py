@@ -89,6 +89,11 @@ def annotations_dir(version, partition):
     return REPO_ROOT / "outputs/annotations" / f"v{version}" / partition
 
 
+def baselines_dir(partition):
+    validate_partition(partition)
+    return REPO_ROOT / "outputs/baselines" / partition
+
+
 def figures_dir(version, partition):
     validate_partition(partition)
     return REPO_ROOT / "outputs/figures" / f"v{version}" / partition
