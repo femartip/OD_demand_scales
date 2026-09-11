@@ -235,3 +235,35 @@ Compare rubric versions on predictive accuracy and failure detection:
 poetry run python scripts/analysis/evaluate_rubrics.py 16 17 18 detection zeroshot --partition calibration
 ```
 
+
+## Baselines
+
+Reference predictors for the rubric. Each writes `dataset,image_id,level` to
+`outputs/baselines/<partition>/`, and `evaluate_rubrics.py` accepts their names alongside
+rubric versions, so everything is scored with the same folds and metrics.
+
+- `ionescu_features.py`: frozen ResNet-50 features and ridge regression trained on the
+  detector score (Ionescu et al., CVPR 2016, retargeted). Supervised, so an upper
+  reference rather than a peer.
+- `ic9600_complexity.py`: IC9600 image complexity (Feng et al., TPAMI 2023), zero-shot.
+  Needs a clone of https://github.com/tinglyfeng/IC9600 for `ICNet.py` and its checkpoint
+  at `data/models/ic9600/ck.pth`.
+- `mllm_direct.py`: the same annotator and task definition, without the rubric.
+- `mllm_count.py`: the same annotator asked only for an object count, binned to five levels.
+
+```bash
+poetry run python scripts/baselines/ionescu_features.py --partition calibration
+poetry run python scripts/baselines/ic9600_complexity.py --partition calibration
+poetry run python scripts/baselines/mllm_direct.py --partition calibration --workers 4
+poetry run python scripts/baselines/mllm_count.py --partition calibration --workers 4
+```
+
+The two MLLM baselines need the local `llama-server` and resume from their `_raw.csv`.
+Counting produces much longer reasoning than rating, so it is several times slower; lower
+the server `--reasoning-budget` to speed it up.
+
+Score baselines and rubrics together:
+
+```bash
+poetry run python scripts/analysis/evaluate_rubrics.py 16 17 18 ionescu ic9600 mllm_direct mllm_count detection zeroshot --partition calibration
+```

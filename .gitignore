@@ -10,6 +10,8 @@ __pycache__/
 *.py[codz]
 *$py.class
 
+data/models/ic9600
+
 *.out
 # C extensions
 *.so
