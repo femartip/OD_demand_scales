@@ -3,6 +3,9 @@ exploratory/
 outputs/object_detection
 *.sh
 /outputs/logs
+/outputs/analysis
+/outputs/figures
+
 .vscode
 data/datasets
 # Byte-compiled / optimized / DLL files
@@ -10,6 +13,7 @@ __pycache__/
 *.py[codz]
 *$py.class
 
+data/human_detections
 data/models/ic9600
 
 *.out
