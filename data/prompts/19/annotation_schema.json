@@ -1,0 +1,248 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "anyOf": [
+    {
+      "type": "object",
+      "properties": {
+        "target_abundance": {
+          "$ref": "#/$defs/abundance"
+        },
+        "target_scale": {
+          "$ref": "#/$defs/dimension"
+        },
+        "target_visibility": {
+          "$ref": "#/$defs/dimension"
+        },
+        "instance_separation": {
+          "$ref": "#/$defs/dimension"
+        },
+        "image_degradation": {
+          "$ref": "#/$defs/dimension"
+        },
+        "appearance_atypicality": {
+          "$ref": "#/$defs/dimension"
+        },
+        "target_count_estimate": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "target_inventory_uncertain": {
+          "type": "boolean"
+        },
+        "depiction_types": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "physical_object",
+              "photographic_depiction",
+              "drawn_or_rendered_depiction",
+              "uncertain"
+            ]
+          }
+        }
+      },
+      "required": [
+        "target_abundance",
+        "target_scale",
+        "target_visibility",
+        "instance_separation",
+        "image_degradation",
+        "appearance_atypicality",
+        "target_count_estimate",
+        "target_inventory_uncertain",
+        "depiction_types"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "target_abundance": {
+          "$ref": "#/$defs/empty_abundance"
+        },
+        "target_scale": {
+          "$ref": "#/$defs/empty_dimension"
+        },
+        "target_visibility": {
+          "$ref": "#/$defs/empty_dimension"
+        },
+        "instance_separation": {
+          "$ref": "#/$defs/empty_dimension"
+        },
+        "image_degradation": {
+          "$ref": "#/$defs/empty_dimension"
+        },
+        "appearance_atypicality": {
+          "$ref": "#/$defs/empty_dimension"
+        },
+        "target_count_estimate": {
+          "const": 0
+        },
+        "target_inventory_uncertain": {
+          "type": "boolean"
+        },
+        "depiction_types": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "physical_object",
+              "photographic_depiction",
+              "drawn_or_rendered_depiction",
+              "uncertain"
+            ]
+          }
+        }
+      },
+      "required": [
+        "target_abundance",
+        "target_scale",
+        "target_visibility",
+        "instance_separation",
+        "image_degradation",
+        "appearance_atypicality",
+        "target_count_estimate",
+        "target_inventory_uncertain",
+        "depiction_types"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "target_abundance": {
+          "$ref": "#/$defs/empty_abundance"
+        },
+        "target_scale": {
+          "$ref": "#/$defs/empty_dimension"
+        },
+        "target_visibility": {
+          "$ref": "#/$defs/empty_dimension"
+        },
+        "instance_separation": {
+          "$ref": "#/$defs/empty_dimension"
+        },
+        "image_degradation": {
+          "$ref": "#/$defs/empty_dimension"
+        },
+        "appearance_atypicality": {
+          "$ref": "#/$defs/empty_dimension"
+        },
+        "target_count_estimate": {
+          "type": "null"
+        },
+        "target_inventory_uncertain": {
+          "const": true
+        },
+        "depiction_types": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "physical_object",
+              "photographic_depiction",
+              "drawn_or_rendered_depiction",
+              "uncertain"
+            ]
+          }
+        }
+      },
+      "required": [
+        "target_abundance",
+        "target_scale",
+        "target_visibility",
+        "instance_separation",
+        "image_degradation",
+        "appearance_atypicality",
+        "target_count_estimate",
+        "target_inventory_uncertain",
+        "depiction_types"
+      ],
+      "additionalProperties": false
+    }
+  ],
+  "$defs": {
+    "abundance": {
+      "type": "object",
+      "properties": {
+        "level": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "evidence": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "level",
+        "evidence"
+      ],
+      "additionalProperties": false
+    },
+    "dimension": {
+      "type": "object",
+      "properties": {
+        "level": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "severe_fraction": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      "required": [
+        "level",
+        "evidence",
+        "severe_fraction"
+      ],
+      "additionalProperties": false
+    },
+    "empty_abundance": {
+      "type": "object",
+      "properties": {
+        "level": {
+          "type": "null"
+        },
+        "evidence": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "level",
+        "evidence"
+      ],
+      "additionalProperties": false
+    },
+    "empty_dimension": {
+      "type": "object",
+      "properties": {
+        "level": {
+          "type": "null"
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "severe_fraction": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "level",
+        "evidence",
+        "severe_fraction"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

@@ -30,18 +30,18 @@ Return only one natural number: 1, 2, 3, 4, or 5. Do not return an explanation, 
 
 MODEL_ENDPOINT = os.environ.get("MODEL_ENDPOINT", "http://127.0.0.1:8080/v1/chat/completions")
 MAX_REASONING_TOKENS = int(os.environ.get("MAX_REASONING_TOKENS", 12000))
+NAME="mllm_direct"
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--partition", required=True, choices=PARTITIONS)
 parser.add_argument("--workers", type=int, default=4)
 parser.add_argument("--attempts", type=int, default=3)
-parser.add_argument("--name", default="mllm_direct")
 args = parser.parse_args()
 
 images = load_manifest(args.partition, split_config=load_split_config()).sort_values(["dataset", "image_id"]).reset_index(drop=True)
 output_dir = baselines_dir(args.partition)
 output_dir.mkdir(parents=True, exist_ok=True)
-raw_path = output_dir / f"{args.name}_raw.csv"
+raw_path = output_dir / f"{NAME}_raw.csv"
 
 answered = {}
 if raw_path.is_file():
@@ -89,9 +89,9 @@ with open(raw_path, "a", newline="", encoding="utf-8") as raw_file:
     finally:
         pool.shutdown(cancel_futures=True)
 
-images["level"] = images["image_id"].map(answered)
-images = images[images["level"].notna()]
-images["level"] = images["level"].astype(int)
-output_path = output_dir / f"{args.name}.csv"
-images[["dataset", "image_id", "level"]].to_csv(output_path, index=False)
-print(f"Saved {output_path}: {images['level'].value_counts().sort_index().to_dict()}")
+images["difficulty"] = images["image_id"].map(answered)
+images = images[images["difficulty"].notna()]
+images["difficulty"] = images["difficulty"].astype(int)
+output_path = output_dir / f"{NAME}.csv"
+images[["dataset", "image_id", "difficulty"]].to_csv(output_path, index=False)
+print(f"Saved {output_path}: {images['difficulty'].value_counts().sort_index().to_dict()}")

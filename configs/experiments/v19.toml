@@ -1,0 +1,22 @@
+version = 19
+split_config = "configs/splits.toml"
+
+[evaluation]
+iou_threshold = 0.5
+compute_map = false
+empty_union_score = 1.0
+
+[inference]
+transformer_confidence_threshold = 0.5
+
+[rubric]
+response_schema = "data/prompts/19/annotation_schema.json"
+prompt_joint = "data/prompts/19/zero_shot_prompt_dimensions.txt"
+
+[rubric.prompts_separate]
+target_abundance = "data/prompts/19/zero_shot_prompt_target_abundance.txt"
+target_scale = "data/prompts/19/zero_shot_prompt_target_scale.txt"
+target_visibility = "data/prompts/19/zero_shot_prompt_target_visibility.txt"
+instance_separation = "data/prompts/19/zero_shot_prompt_instance_separation.txt"
+image_degradation = "data/prompts/19/zero_shot_prompt_image_degradation.txt"
+appearance_atypicality = "data/prompts/19/zero_shot_prompt_appearance_atypicality.txt"

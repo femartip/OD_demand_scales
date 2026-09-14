@@ -1,0 +1,40 @@
+You are going to describe the visible properties of one complete image for [TASK]. [TASK_DEFINITION]
+
+Assess the whole image, including the foreground, background, edges, and small or partially visible objects. Do not focus only on the largest, most salient, or most difficult object. Judge only visible evidence; do not predict a detector's score or infer its training data.
+
+This draft uses the COCO object categories: person, bicycle, car, motorcycle, airplane, bus, train, truck, boat, traffic light, fire hydrant, stop sign, parking meter, bench, bird, cat, dog, horse, sheep, cow, elephant, bear, zebra, giraffe, backpack, umbrella, handbag, tie, suitcase, frisbee, skis, snowboard, sports ball, kite, baseball bat, baseball glove, skateboard, surfboard, tennis racket, bottle, wine glass, cup, fork, knife, spoon, bowl, banana, apple, sandwich, orange, broccoli, carrot, hot dog, pizza, donut, cake, chair, couch, potted plant, bed, dining table, toilet, tv, laptop, mouse, remote, keyboard, cell phone, microwave, oven, toaster, sink, refrigerator, book, clock, vase, scissors, teddy bear, hair drier, toothbrush.
+
+Targets are visible instances of these categories, including small background instances and recognizable partial instances. Count separate instances separately, including instances of the same category. Do not count completely hidden objects or invent objects that might be present. Background content outside these categories matters only when it affects the visible evidence around targets.
+
+For this draft, include recognizable depictions of these categories inside posters, photographs, screens, or drawings, and record the depiction types. Do not count the same instance twice: a depicted person is one person, and their visible tie is a separate target. This is an image-description rule, not a claim about which objects have ground-truth labels.
+
+First inspect the full target population. Give each instance equal weight, regardless of its area or salience. Approximate the population when exact counting is impractical, and mark target_inventory_uncertain if counting or identifying the eligible instances is uncertain. Do not lower a level because the scene is hard to count.
+
+For each requested dimension other than target abundance, return:
+- level: the median condition across all target instances, using that dimension's five anchors. Choose the lowest level for which at least half of all targets are at that level or below. For an even split, use the lower of the two central levels.
+- severe_fraction: the estimated fraction of all targets meeting that dimension's Level 4 or Level 5 anchor, as a number from 0 to 1. This preserves difficult minorities that the median alone would hide. Do not use image area as the denominator.
+- evidence: one short sentence describing the image-wide pattern and any affected subset, rather than describing only one selected object.
+
+You do not need to output a list of individual objects. Estimate the image-wide distribution directly when there are many instances. Different dimensions may receive different levels. Assess each dimension using only its own anchors; do not let the general impression of the scene determine every score. There is no overall difficulty level.
+
+If no eligible targets are visible, use null for target-dependent levels and severe_fraction; report target_count_estimate as 0. If the target inventory cannot be assessed at all, use null for these fields and for target_count_estimate, and mark target_inventory_uncertain as true. Do not encode missing evidence as Level 5.
+
+TARGET SCALE
+Consider the area of each target's tight visible bounding rectangle relative to the full image area. Use the rectangle around the visible portion, without extending it to reconstruct hidden parts. Scale is geometric: do not increase this score for blur, noise, or unusual appearance. A narrow object may have small area even when it is long.
+
+Level 1: A target occupies at least 10% of the image area.
+Level 2: A target occupies at least 3% but less than 10% of the image area.
+Level 3: A target occupies at least 1% but less than 3% of the image area.
+Level 4: A target occupies at least 0.25% but less than 1% of the image area.
+Level 5: A target occupies less than 0.25% of the image area.
+
+Use the image-wide median level and the fraction of all targets below 1% area. Do not choose the level from the largest or smallest target alone.
+
+Also return these image-wide fields:
+- target_count_estimate: an approximate integer count of all eligible target instances, or null if it cannot be estimated.
+- target_inventory_uncertain: true or false.
+- depiction_types: a list of any types present among eligible targets, chosen from physical_object, photographic_depiction, drawn_or_rendered_depiction, and uncertain. Use an empty list if no targets are visible. A photograph of an ordinary scene contains physical_object targets; photographic_depiction refers to a photograph displayed inside that scene. More than one type may be present. These are categories, not difficulty levels.
+
+Return only one valid JSON object. Include the key target_scale, containing an object with level, severe_fraction, and evidence, and the three image-wide fields above. Levels must be integers from 1 to 5 when assessable. Do not output other dimension scores, an overall level, Markdown, or extra text.
+
+[TARGET_IMAGE]

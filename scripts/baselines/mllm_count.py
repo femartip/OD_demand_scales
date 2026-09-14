@@ -30,11 +30,12 @@ Return only the number of such object instances as a natural number. Do not retu
 MODEL_ENDPOINT = os.environ.get("MODEL_ENDPOINT", "http://127.0.0.1:8080/v1/chat/completions")
 MAX_REASONING_TOKENS = int(os.environ.get("MAX_REASONING_TOKENS", 12000))
 
+NAME="mllm_count"
+
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--partition", required=True, choices=PARTITIONS)
 parser.add_argument("--workers", type=int, default=4)
 parser.add_argument("--attempts", type=int, default=3)
-parser.add_argument("--name", default="mllm_count")
 args = parser.parse_args()
 
 config = load_split_config()
@@ -42,7 +43,7 @@ images = load_manifest(args.partition, split_config=config).sort_values(["datase
 random_ids = np.flatnonzero(images["selection_group"].eq("random")) if args.partition == "calibration" else np.arange(len(images))
 output_dir = baselines_dir(args.partition)
 output_dir.mkdir(parents=True, exist_ok=True)
-raw_path = output_dir / f"{args.name}_raw.csv"
+raw_path = output_dir / f"{NAME}_raw.csv"
 
 answered = {}
 if raw_path.is_file():
@@ -92,11 +93,8 @@ with open(raw_path, "a", newline="", encoding="utf-8") as raw_file:
 
 images["count"] = images["image_id"].map(answered)
 images = images[images["count"].notna()].copy()
-counts = images["count"].to_numpy(dtype=float)
-# More objects is treated as harder, binned on the random cohort so the edges match it.
-in_random = images.index.isin(random_ids)
-edges = np.quantile(counts[in_random], [0.2, 0.4, 0.6, 0.8])
-images["level"] = 1 + np.searchsorted(edges, counts)
-output_path = output_dir / f"{args.name}.csv"
-images[["dataset", "image_id", "level", "count"]].to_csv(output_path, index=False)
-print(f"Saved {output_path}: {images['level'].value_counts().sort_index().to_dict()}")
+# Counts act multiplicatively on performance, so the log is the feature to map linearly.
+images["log_count"] = np.log1p(images["count"].to_numpy(dtype=float))
+output_path = output_dir / f"{NAME}.csv"
+images[["dataset", "image_id", "count", "log_count"]].to_csv(output_path, index=False)
+print(f"Saved {output_path}: count median {images['count'].median():.0f}, max {images['count'].max():.0f}")

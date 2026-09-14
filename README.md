@@ -176,7 +176,7 @@ llama-server \
   -fa on \
   --image-min-tokens 1024 \
   --reasoning-budget 10000 \
-  --reasoning-budget-message "I have gathered enough evidence. I will now state the single overall level." \
+  --reasoning-budget-message "I have gathered enough evidence. I will now return the requested annotation." \
   --host 127.0.0.1 \
   --port 8080
 ```
@@ -201,6 +201,13 @@ localisation annotation pass is needed.
 poetry run python scripts/rubrics/llm-prompting.py coco-rem 17 zeroshot --partition calibration
 
 ```
+The response format defaults to `level`, preserving the existing CSV output. For
+v19's combined dimension prompt, request JSON explicitly:
+
+```bash
+poetry run python scripts/rubrics/llm-prompting.py coco-rem 19 zeroshot --partition calibration --response-format json --workers 4
+```
+
 ## Analysis and plots
 
 Prepare the shared COCO-ReM annotations for each task analysis:
@@ -236,18 +243,30 @@ poetry run python scripts/analysis/evaluate_rubrics.py 16 17 18 detection zerosh
 ```
 
 
+For v19, flatten the shared JSON annotations for both analysis tasks:
+
+```bash
+poetry run python scripts/analysis/merged_dataset_distribution.py 19 detection zeroshot --partition calibration --response-format json
+poetry run python scripts/analysis/merged_dataset_distribution.py 19 localization zeroshot --partition calibration --response-format json
+```
+
+Compare the scalar rubrics with three v19 assessors on the same images and folds:
+
+```bash
+poetry run python scripts/analysis/evaluate_rubrics.py 16 17 18 19 detection zeroshot --partition calibration --predictor ridge --features levels abundance-and-scale levels-and-fractions
+```
+
+
 ## Baselines
 
-Reference predictors for the rubric. Each writes `dataset,image_id,level` to
-`outputs/baselines/<partition>/`, and `evaluate_rubrics.py` accepts their names alongside
-rubric versions, so everything is scored with the same folds and metrics.
+Reference predictors for the rubric. Each writes its native features to
+`outputs/baselines/<partition>/<name>.csv`, and `evaluate_rubrics.py` accepts their names
+alongside rubric versions, so the same assessor, folds and metrics are used throughout.
 
 - `ionescu_features.py`: frozen ResNet-50 features and ridge regression trained on the
   detector score (Ionescu et al., CVPR 2016, retargeted). Supervised, so an upper
   reference rather than a peer.
 - `ic9600_complexity.py`: IC9600 image complexity (Feng et al., TPAMI 2023), zero-shot.
-  Needs a clone of https://github.com/tinglyfeng/IC9600 for `ICNet.py` and its checkpoint
-  at `data/models/ic9600/ck.pth`.
 - `mllm_direct.py`: the same annotator and task definition, without the rubric.
 - `mllm_count.py`: the same annotator asked only for an object count, binned to five levels.
 
@@ -259,11 +278,10 @@ poetry run python scripts/baselines/mllm_count.py --partition calibration --work
 ```
 
 The two MLLM baselines need the local `llama-server` and resume from their `_raw.csv`.
-Counting produces much longer reasoning than rating, so it is several times slower; lower
-the server `--reasoning-budget` to speed it up.
 
-Score baselines and rubrics together:
+Score baselines and rubrics with the same assessor:
 
 ```bash
-poetry run python scripts/analysis/evaluate_rubrics.py 16 17 18 ionescu ic9600 mllm_direct mllm_count detection zeroshot --partition calibration
+poetry run python scripts/analysis/evaluate_rubrics.py 19 mllm_count:log_count mllm_direct ionescu ic9600 \
+  detection zeroshot --partition calibration --predictor ridge --features levels abundance-and-scale
 ```
