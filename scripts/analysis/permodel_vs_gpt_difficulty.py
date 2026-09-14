@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import re
 import matplotlib.pyplot as plt
 import sys
@@ -7,7 +8,7 @@ import argparse
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from common.experiment import (PARTITIONS, PROMPT_STRATEGIES, annotations_dir, figures_dir, object_detection_root,)
+from common.experiment import (PARTITIONS, PROMPT_STRATEGIES, annotations_dir, figures_dir, object_detection_root, load_manifest, split_config_for_version,)
 
 
 
@@ -16,6 +17,8 @@ parser.add_argument("version")
 parser.add_argument("task", choices=("detection", "localization"))
 parser.add_argument("prompt_strategy", choices=PROMPT_STRATEGIES)
 parser.add_argument("--partition", required=True, choices=PARTITIONS)
+parser.add_argument("--columns", nargs="+", default=["level"], help="Annotation columns, or dimensions for all six levels")
+parser.add_argument("--annotator", help="Select one annotator from merged annotations")
 args = parser.parse_args()
 
 version = str(args.version)
@@ -43,14 +46,27 @@ else:
 
 gpt_diff = pd.read_csv(annotation_dir / f"v{version}_{task}_{prompt_strategy}_dataset_gpt_difficulty.csv",dtype={'image_id': object},)
 
-gpt_diff = gpt_diff[gpt_diff['level'] != 'error']
+if args.annotator:
+    gpt_diff = gpt_diff[gpt_diff["annotator"].eq(args.annotator)]
+assert not gpt_diff.duplicated(["dataset", "image_id"]).any(), "Select one annotation per image with --annotator"
+columns = args.columns
+if columns == ["dimensions"]:
+    columns = [f"{name}_level" for name in ("target_abundance", "target_scale", "target_visibility", "instance_separation", "image_degradation", "appearance_atypicality")]
+if columns != ["level"]:
+    gpt_diff[columns] = gpt_diff[columns].apply(pd.to_numeric, errors="coerce")
+    manifest = load_manifest(args.partition, split_config=split_config_for_version(version))
+    manifest["cohort"] = np.where(manifest["selection_group"].eq("random"), "random", "properties") if args.partition == "calibration" else "random"
+    gpt_diff = gpt_diff.merge(manifest[["dataset", "image_id", "cohort"]], on=["dataset", "image_id"], validate="one_to_one")
 
-try:
-    gpt_diff["level"] = gpt_diff["level"].apply(lambda x: int(re.search(r'\d+', x).group()))
-except TypeError:
-    pass
+if columns == ["level"]:
+    gpt_diff = gpt_diff[gpt_diff['level'] != 'error']
 
-print(gpt_diff["level"].value_counts())
+    try:
+        gpt_diff["level"] = gpt_diff["level"].apply(lambda x: int(re.search(r'\d+', x).group()))
+    except TypeError:
+        pass
+
+    print(gpt_diff["level"].value_counts())
 
 model_families = {
     "yolov5": [f"yolov5{size}-coco-torch" for size in ("n", "s", "m", "l", "x")],
@@ -102,6 +118,33 @@ color_dict = {
 }
 
 available_models = set(df["model"].unique())
+
+if columns != ["level"]:
+    final = df.merge(gpt_diff, on=["dataset", "image_id"], validate="many_to_one")
+    for cohort, frame in final.groupby("cohort"):
+        for family, family_models in model_families.items():
+            data = frame[frame["model"].isin(family_models)]
+            if data.empty:
+                continue
+            layout = (int(np.ceil(len(columns) / 3)), min(3, len(columns)))
+            fig, axes = plt.subplots(*layout, figsize=(5 * layout[1], 4 * layout[0]), squeeze=False)
+            for ax, column in zip(axes.flat, columns):
+                valid = data[data[column].isin(range(1, 6))]
+                count = valid.drop_duplicates(["dataset", "image_id"])[column].value_counts()
+                for model, samples in valid.groupby("model"):
+                    trend = samples.groupby(column)["score"].mean().reindex(range(1, 6))
+                    ax.plot(trend.index, trend, marker="o", label=model, color=color_dict.get(model))
+                ax.set(title=column.removesuffix("_level").replace("_", " ").title(), ylim=(0, 1), ylabel=f"{task} S",
+                       xticks=range(1, 6), xticklabels=[f"{level}\nn={count.get(level, 0)}" for level in range(1, 6)])
+            for ax in list(axes.flat)[len(columns):]:
+                ax.set_visible(False)
+            handles, labels = axes.flat[0].get_legend_handles_labels()
+            fig.legend(handles, labels, loc="lower center", ncol=2, fontsize=8)
+            fig.suptitle(f"v{version} / {family_display_names[family]} / {cohort}")
+            fig.tight_layout(rect=(0, 0.12, 1, 0.96))
+            fig.savefig(figure_dir / f"v{version}_{family}_{task}_{prompt_strategy}_{cohort}_{'_'.join(args.columns)}_accuracy_curves.pdf")
+            plt.close(fig)
+    sys.exit(0)
 
 for family, family_models in model_families.items():
     missing_models = [model for model in family_models if model not in available_models]

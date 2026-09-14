@@ -1,5 +1,6 @@
 import pandas as pd
 import glob
+import json
 import os
 import re
 import sys
@@ -15,6 +16,8 @@ parser.add_argument("version")
 parser.add_argument("task", choices=("detection", "localization"))
 parser.add_argument("prompt_strategy", choices=PROMPT_STRATEGIES)
 parser.add_argument("--partition", required=True, choices=PARTITIONS)
+parser.add_argument("--response-format", choices=("level", "json"), default="level")
+parser.add_argument("--annotator", help="Select the annotator name used in the annotation filename")
 args = parser.parse_args()
 
 version = str(args.version)
@@ -31,7 +34,8 @@ split_config = split_config_for_version(version)
 # Annotation is done once per image with the detection task wording; both the
 # detection and localization analyses read that same shared file.
 annotation_task = "detection"
-csv_files = sorted(glob.glob(os.path.join(folder_path,f'v{version}_{annotation_task}_{prompt_strategy}_labelled_images_*.csv',)))
+extension = "jsonl" if args.response_format == "json" else "csv"
+csv_files = sorted(glob.glob(os.path.join(folder_path, f'v{version}_{annotation_task}_{prompt_strategy}_labelled_images_*.{extension}')))
 
 data_frames = []
 
@@ -44,8 +48,37 @@ for file in csv_files:
     if dataset is None:
         raise ValueError(f"Could not determine dataset from {file_name_with_extension}")
 
+    prefix = f"v{version}_{annotation_task}_{prompt_strategy}_labelled_images_{dataset}"
+    annotator = file_name.removeprefix(prefix).removeprefix("_") or "unspecified"
+    if args.annotator and annotator != args.annotator:
+        continue
+
     if dataset not in excluded_datasets and dataset in split_config["datasets"]:
-        df = pd.read_csv(file, delimiter=";", dtype={'image_id': object})
+        if args.response_format == "json":
+            records = {}
+            with open(file, encoding="utf-8") as source:
+                for line in source:
+                    # An active annotation run may still be writing the last line.
+                    if not line.endswith("\n"):
+                        break
+                    record = json.loads(line)
+                    if record["image_id"] not in records or record["annotation"] is not None:
+                        records[record["image_id"]] = record
+            rows = []
+            for image_id, record in records.items():
+                annotation = record["annotation"]
+                status = "failed" if annotation is None else "completed"
+                if annotation is not None and annotation["target_abundance"]["level"] is None:
+                    status = "empty" if annotation["target_count_estimate"] == 0 else "unassessable"
+                rows.append({**(annotation or {}), "image_id": image_id, "annotation_status": status})
+            df = pd.json_normalize(rows, sep="_")
+            if df.empty:
+                continue
+            if "depiction_types" in df:
+                df["depiction_types"] = df["depiction_types"].map(lambda value: json.dumps(value) if isinstance(value, list) else None)
+        else:
+            df = pd.read_csv(file, delimiter=";", dtype={'image_id': object})
+        df["annotator"] = annotator
         allowed_ids = set(load_manifest(args.partition, dataset, split_config)["image_id"])
         outside_partition = set(df["image_id"].astype(str)) - allowed_ids
         if outside_partition:
