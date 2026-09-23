@@ -1,4 +1,4 @@
-dataset,image_id,level
+dataset,image_id,difficulty
 coco-rem,000000000761,4
 coco-rem,000000001591,3
 coco-rem,000000001756,4

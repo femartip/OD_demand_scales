@@ -1,0 +1,11 @@
+# Annotator perception probes. These are not a rubric and are not versioned with one:
+# they ask for aggregate statistics of the target population that COCO-ReM can verify.
+split_config = "configs/splits.toml"
+schemas = "data/prompts/probes/probe_schemas.json"
+
+[prompts]
+count = "data/prompts/probes/count.txt"
+small_fraction = "data/prompts/probes/small_fraction.txt"
+truncation = "data/prompts/probes/truncation.txt"
+category_diversity = "data/prompts/probes/category_diversity.txt"
+joint = "data/prompts/probes/joint.txt"

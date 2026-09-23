@@ -1,0 +1,240 @@
+{
+  "count": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "target_count": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "minimum": 0
+      },
+      "target_count_estimate": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "minimum": 0
+      },
+      "target_inventory_uncertain": {
+        "type": "boolean"
+      },
+      "depiction_types": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": [
+            "physical_object",
+            "photographic_depiction",
+            "drawn_or_rendered_depiction",
+            "uncertain"
+          ]
+        }
+      }
+    },
+    "required": [
+      "target_count",
+      "target_count_estimate",
+      "target_inventory_uncertain",
+      "depiction_types"
+    ],
+    "additionalProperties": false
+  },
+  "small_fraction": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "small_fraction": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "minimum": 0,
+        "maximum": 1
+      },
+      "target_count_estimate": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "minimum": 0
+      },
+      "target_inventory_uncertain": {
+        "type": "boolean"
+      },
+      "depiction_types": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": [
+            "physical_object",
+            "photographic_depiction",
+            "drawn_or_rendered_depiction",
+            "uncertain"
+          ]
+        }
+      }
+    },
+    "required": [
+      "small_fraction",
+      "target_count_estimate",
+      "target_inventory_uncertain",
+      "depiction_types"
+    ],
+    "additionalProperties": false
+  },
+  "truncation": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "truncation_fraction": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "minimum": 0,
+        "maximum": 1
+      },
+      "target_count_estimate": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "minimum": 0
+      },
+      "target_inventory_uncertain": {
+        "type": "boolean"
+      },
+      "depiction_types": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": [
+            "physical_object",
+            "photographic_depiction",
+            "drawn_or_rendered_depiction",
+            "uncertain"
+          ]
+        }
+      }
+    },
+    "required": [
+      "truncation_fraction",
+      "target_count_estimate",
+      "target_inventory_uncertain",
+      "depiction_types"
+    ],
+    "additionalProperties": false
+  },
+  "category_diversity": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "category_count": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "minimum": 0
+      },
+      "target_count_estimate": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "minimum": 0
+      },
+      "target_inventory_uncertain": {
+        "type": "boolean"
+      },
+      "depiction_types": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": [
+            "physical_object",
+            "photographic_depiction",
+            "drawn_or_rendered_depiction",
+            "uncertain"
+          ]
+        }
+      }
+    },
+    "required": [
+      "category_count",
+      "target_count_estimate",
+      "target_inventory_uncertain",
+      "depiction_types"
+    ],
+    "additionalProperties": false
+  },
+  "joint": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "target_count": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "minimum": 0
+      },
+      "small_fraction": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "minimum": 0,
+        "maximum": 1
+      },
+      "truncation_fraction": {
+        "type": [
+          "number",
+          "null"
+        ],
+        "minimum": 0,
+        "maximum": 1
+      },
+      "category_count": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "minimum": 0
+      },
+      "target_count_estimate": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "minimum": 0
+      },
+      "target_inventory_uncertain": {
+        "type": "boolean"
+      },
+      "depiction_types": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": [
+            "physical_object",
+            "photographic_depiction",
+            "drawn_or_rendered_depiction",
+            "uncertain"
+          ]
+        }
+      }
+    },
+    "required": [
+      "target_count",
+      "small_fraction",
+      "truncation_fraction",
+      "category_count",
+      "target_count_estimate",
+      "target_inventory_uncertain",
+      "depiction_types"
+    ],
+    "additionalProperties": false
+  }
+}

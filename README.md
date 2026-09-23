@@ -260,12 +260,18 @@ poetry run python scripts/analysis/evaluate_rubrics.py 16 17 18 19 detection zer
 ## Baselines
 
 Reference predictors for the rubric. Each writes its native features to
-`outputs/baselines/<partition>/<name>.csv`, and `evaluate_rubrics.py` accepts their names
-alongside rubric versions, so the same assessor, folds and metrics are used throughout.
+`outputs/baselines/<partition>/<name>.csv` (ResNet embeddings use `ionescu_features.npz`).
+`evaluate_rubrics.py` accepts their names alongside rubric versions and evaluates them
+on the same images, outer folds and metrics.
 
-- `ionescu_features.py`: frozen ResNet-50 features and ridge regression trained on the
-  detector score (Ionescu et al., CVPR 2016, retargeted). Supervised, so an upper
-  reference rather than a peer.
+- `ionescu_features.py`: caches frozen ResNet-50 features without using detector outcomes.
+  With `--predictor ridge`, the evaluator fits an Ionescu-inspired adaptation: ridge
+  predicts the mean detector score, then a second ridge maps it to each detector.
+  Both stages and penalty selection are fitted inside each outer training fold;
+  second-stage training uses cross-fitted first-stage predictions. The original paper
+  predicts human visual-search difficulty, so this is an adaptation, not a reproduction.
+  Legacy `ionescu.csv` predictions are not used. Frozen evaluation with `--mappings`
+  also loads the adjacent `ionescu_stage1.npz`; keep both files together.
 - `ic9600_complexity.py`: IC9600 image complexity (Feng et al., TPAMI 2023), zero-shot.
 - `mllm_direct.py`: the same annotator and task definition, without the rubric.
 - `mllm_count.py`: the same annotator asked only for an object count, binned to five levels.

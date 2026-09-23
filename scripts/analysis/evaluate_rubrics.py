@@ -15,6 +15,8 @@ from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from scipy.stats import rankdata
 
+from ionescu import fit_ionescu
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from common.experiment import (PARTITIONS, PROMPT_STRATEGIES, REPO_ROOT, annotations_dir, baselines_dir, load_manifest, load_split_config, object_detection_root,split_config_for_version)
 
@@ -133,8 +135,17 @@ for entry in args.versions:
     if version.isdigit():
         version, requested = entry, ""
     # Detection and localization share the same image annotation.
-    annotations = pd.read_csv(level_path(version, args.partition, args.prompt_strategy), dtype={"image_id": str})
-    if args.annotator:
+    if version == "ionescu":
+        if args.predictor != "ridge" or requested not in ("", "predicted_score"):
+            parser.error("ionescu requires --predictor ridge and uses predicted_score")
+        with np.load(baselines_dir(args.partition) / "ionescu_features.npz") as cached:
+            annotations = pd.DataFrame({key: cached[key] for key in ("dataset", "image_id")})
+            embeddings = pd.DataFrame(cached["features"], index=pd.MultiIndex.from_frame(annotations))
+        # The scalar is generated inside each training fold, never read from ionescu.csv.
+        annotations["predicted_score"] = 0.
+    else:
+        annotations = pd.read_csv(level_path(version, args.partition, args.prompt_strategy), dtype={"image_id": str})
+    if args.annotator and version != "ionescu":
         annotations = annotations[annotations["annotator"].eq(args.annotator)]
     assert not annotations.duplicated(["dataset", "image_id"]).any(), "Select one annotation per image with --annotator"
     scalar = "level" in annotations
@@ -219,10 +230,16 @@ estimates, bootstraps = {}, {}
 for version, candidate in candidates.items():
     x = images[candidate["inputs"]].to_numpy(dtype=float)
     is_ridge = candidate["predictor"] == "ridge"
+    is_ionescu = version == "ionescu"
+    if is_ionescu:
+        features = embeddings.loc[pd.MultiIndex.from_frame(images[["dataset", "image_id"]])].to_numpy(dtype=float)
     levels = np.full(len(images), np.nan) if is_ridge else x[:, 0].astype(int)
     if frozen is None:
         baseline_mean = y[random_ids].mean(axis=0)
-        if is_ridge:
+        if is_ionescu:
+            stage1, coefficients, intercepts, alphas = fit_ionescu(features[random_ids], y[random_ids], config["seed"])
+            stage1_coef, stage1_intercept, stage1_alpha = stage1.coef_, stage1.intercept_, stage1.alpha_
+        elif is_ridge:
             coefficients, intercepts, alphas = fit_ridge(x[random_ids], y[random_ids], config["seed"])
         else:
             mapping = fit_mapping(levels[random_ids], y[random_ids])
@@ -241,15 +258,27 @@ for version, candidate in candidates.items():
         else:
             mapping = saved.pivot(index="level", columns="model", values="prediction").loc[range(1, 6), models].to_numpy()
             support = saved.groupby("level")["n_train"].first().loc[range(1, 6)].to_numpy()
+    if is_ionescu:
+        if frozen is not None:
+            with np.load(args.mappings.parent / "ionescu_stage1.npz") as stage1:
+                stage1_coef, stage1_intercept, stage1_alpha = (stage1[key] for key in ("coefficient", "intercept", "alpha"))
+        x = (features @ stage1_coef + stage1_intercept)[:, None]
+        np.savez(output_dir / "ionescu_stage1.npz", coefficient=stage1_coef,
+                 intercept=stage1_intercept, alpha=stage1_alpha)
     predicted = np.clip(x @ coefficients + intercepts, 0, 1) if is_ridge else mapping[levels - 1].copy()
     baseline = np.broadcast_to(baseline_mean, y.shape).copy()
     fold_ids = np.full(len(images), -1)
     n_train_level = np.full(len(images), np.nan) if is_ridge else support[levels - 1].copy()
     for fold, (train, test) in enumerate(folds):
         if is_ridge:
-            coef, intercept, alpha = fit_ridge(x[train], y[train], config["seed"])
+            if is_ionescu:
+                stage1, coef, intercept, alpha = fit_ionescu(features[train], y[train], config["seed"])
+                x[test, 0] = stage1.predict(features[test])
+                print(f"ionescu: fitted both stages for fold {fold + 1}/{len(folds)}", flush=True)
+            else:
+                coef, intercept, alpha = fit_ridge(x[train], y[train], config["seed"])
             predicted[test] = np.clip(x[test] @ coef + intercept, 0, 1)
-            selected_alphas.extend(dict(version=version, model=model, fold=fold, alpha=alpha[m], n_train=len(train)) for m, model in enumerate(models))
+            selected_alphas.extend(dict(version=version, model=model, fold=fold, alpha=alpha[m], n_train=len(train), first_stage_alpha=stage1.alpha_ if is_ionescu else np.nan) for m, model in enumerate(models))
         else:
             predicted[test] = fit_mapping(levels[train], y[train])[levels[test] - 1]
             n_train_level[test] = np.bincount(levels[train], minlength=6)[levels[test]]
@@ -265,7 +294,7 @@ for version, candidate in candidates.items():
             for j, feature in enumerate(candidate["columns"]):
                 mappings.append(dict(**metadata, feature=feature, coefficient=coefficients[j, m],
                                      intercept=intercepts[m], alpha=alphas[m], n_train=len(random_ids)))
-            selected_alphas.append(dict(version=version, model=model, fold=-1, alpha=alphas[m], n_train=len(random_ids)))
+            selected_alphas.append(dict(version=version, model=model, fold=-1, alpha=alphas[m], n_train=len(random_ids), first_stage_alpha=stage1_alpha if is_ionescu else np.nan))
         else:
             for level in range(1, 6):
                 mappings.append(dict(**metadata, level=level, prediction=mapping[level - 1, m], n_train=support[level - 1]))
@@ -374,7 +403,7 @@ for cohort in cohorts:
     plt.close(fig)
 
     # Only single-level predictors have an overall level distribution.
-    scalar_candidates = [name for name, candidate in candidates.items() if len(candidate["columns"]) == 1]
+    scalar_candidates = [name for name, candidate in candidates.items() if candidate["predictor"] == "isotonic"]
     if scalar_candidates:
         fig, axes = plt.subplots(1, len(scalar_candidates), figsize=(4 * len(scalar_candidates), 4), squeeze=False, sharey=True)
         for ax, version in zip(axes[0], scalar_candidates):
