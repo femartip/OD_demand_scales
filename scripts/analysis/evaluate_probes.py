@@ -1,7 +1,9 @@
-"""Score annotator probes against COCO-ReM, stratified by the known policy divergences.
+"""Score annotator probes against COCO-ReM ground truth, per prompting strategy.
 
-The prompt counts depicted objects and individuals inside crowd regions; the reference does
-neither, so agreement is reported on the subset where the two policies agree as well as overall.
+Each probe is scored on all images of a cohort, once per prompting strategy: "separate" reads the
+per-probe files, "joint" reads the single joint file. n_crowd reports how many images carry a COCO
+crowd region, where the prompt counts individuals the reference does not; that is ~6% of images and
+shifts agreement by less than 0.03, so those images are counted rather than excluded.
 
 python scripts/analysis/evaluate_probes.py --partition calibration --annotators qwen3.8-27b-q5
 """
@@ -31,6 +33,7 @@ parser.add_argument("--partition", required=True, choices=PARTITIONS)
 parser.add_argument("--annotators", nargs="+", required=True)
 parser.add_argument("--dataset", default="coco-rem")
 parser.add_argument("--probes", nargs="+", choices=tuple(PROBES), default=tuple(PROBES))
+parser.add_argument("--strategies", nargs="+", choices=("separate", "joint"), default=("separate", "joint"))
 parser.add_argument("--output-dir", type=Path)
 args = parser.parse_args()
 
@@ -71,30 +74,27 @@ reference["cohort"] = np.where(reference.selection_group.eq("random"), "random",
 
 rows = []
 for annotator in args.annotators:
-    for probe in args.probes:
-        answer_key, gt_column, is_fraction = PROBES[probe]
-        path = REPO_ROOT / "outputs/probes" / args.partition / f"{probe}_{args.dataset}_{annotator}.jsonl"
-        if not path.is_file():
-            print(f"missing: {path}")
-            continue
-        records = [json.loads(line) for line in path.read_text().splitlines()]
-        frame = pd.DataFrame([{"image_id": r["image_id"], "predicted": (r["answer"] or {}).get(answer_key),
-                               "depictions": tuple((r["answer"] or {}).get("depiction_types") or [])}
-                              for r in records if r.get("answer")])
-        frame = frame.drop_duplicates("image_id", keep="last")
-        merged = reference.merge(frame, on="image_id").dropna(subset=["predicted", gt_column])
-        merged["physical_only"] = merged.depictions.map(lambda types: types == ("physical_object",))
-        clean = ~merged.crowd_present & merged.physical_only
-        strata = {"all": merged, "clean policy": merged[clean],
-                  "clean, dense (GT count >= 20)": merged[clean & merged.gt_count.ge(20)]}
-        for cohort in ("random", "properties"):
-            for name, subset in strata.items():
-                subset = subset[subset.cohort.eq(cohort)]
+    for strategy in args.strategies:
+        for probe in args.probes:
+            answer_key, gt_column, is_fraction = PROBES[probe]
+            source = probe if strategy == "separate" else "joint"
+            path = REPO_ROOT / "outputs/probes" / args.partition / f"{source}_{args.dataset}_{annotator}.jsonl"
+            if not path.is_file():
+                print(f"missing: {path}")
+                continue
+            records = [json.loads(line) for line in path.read_text().splitlines()]
+            frame = pd.DataFrame([{"image_id": r["image_id"], "predicted": (r["answer"] or {}).get(answer_key)}
+                                  for r in records if r.get("answer")])
+            frame = frame.drop_duplicates("image_id", keep="last")
+            merged = reference.merge(frame, on="image_id").dropna(subset=["predicted", gt_column])
+            for cohort in ("random", "properties"):
+                subset = merged[merged.cohort.eq(cohort)]
                 if len(subset) < 25:
                     continue
                 error = subset.predicted - subset[gt_column]
-                rows.append(dict(annotator=annotator, probe=probe, cohort=cohort, stratum=name,
-                                 n=len(subset), spearman=spearmanr(subset.predicted, subset[gt_column]).statistic,
+                rows.append(dict(annotator=annotator, strategy=strategy, probe=probe, cohort=cohort,
+                                 n=len(subset), n_crowd=int(subset.crowd_present.sum()),
+                                 spearman=spearmanr(subset.predicted, subset[gt_column]).statistic,
                                  mae=error.abs().mean(), bias=error.mean(),
                                  mean_predicted=subset.predicted.mean(), mean_reference=subset[gt_column].mean()))
 
