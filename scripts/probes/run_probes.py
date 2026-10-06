@@ -65,7 +65,9 @@ if destination.is_file():
 
 def ask(image_id, image_path):
     encoded = base64.b64encode(image_path.read_bytes()).decode("ascii")
-    payload = {"model": args.annotator, "temperature": 0, "top_p": 0.95,
+    # Qwen's published sampling settings for thinking mode on vision-language tasks; greedy
+    # decoding is discouraged because it degrades quality and can produce endless repetitions.
+    payload = {"model": args.annotator, "temperature": 0.6, "top_p": 0.95, "top_k": 20, "min_p": 0.0,
                "max_tokens": MAX_REASONING_TOKENS,
                "chat_template_kwargs": {"enable_thinking": True},
                "response_format": {"type": "json_schema",

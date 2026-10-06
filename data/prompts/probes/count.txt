@@ -15,3 +15,5 @@ Return the key target_count with an integer.
 Return only one valid JSON object with the key described above and the three image-wide fields target_count_estimate, target_inventory_uncertain and depiction_types. Do not output dimension scores, an overall level, Markdown, or extra text.
 
 [TARGET_IMAGE]
+
+Assess the image above, examining the full scene before you answer. Return only the JSON object specified, with no other text.
