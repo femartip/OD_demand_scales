@@ -24,6 +24,8 @@ from common.experiment import PARTITIONS, REPO_ROOT, load_manifest, load_split_c
 
 MODEL_ENDPOINT = os.environ.get("MODEL_ENDPOINT", "http://127.0.0.1:8080/v1/chat/completions")
 MAX_REASONING_TOKENS = int(os.environ.get("MAX_REASONING_TOKENS", 12000))
+# Seconds to wait for one answer; slow hardware running full reasoning budgets can need more than 900.
+REQUEST_TIMEOUT = int(os.environ.get("REQUEST_TIMEOUT", 900))
 
 config = load_toml("configs/probes.toml")
 parser = argparse.ArgumentParser(description=__doc__)
@@ -72,12 +74,13 @@ def ask(image_id, image_path):
                "chat_template_kwargs": {"enable_thinking": True},
                "response_format": {"type": "json_schema",
                                    "json_schema": {"name": args.probe, "strict": True, "schema": schema}},
-               "messages": [{"role": "system", "content": [{"type": "text", "text": system_prompt}]},
-                            {"role": "user", "content": [
+               # One user turn, image first, then the whole prompt: with the instructions in a system
+               # message and only the image in the user turn, Qwen3.5-122B mostly skipped deliberation.
+               "messages": [{"role": "user", "content": [
                                 {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{encoded}"}},
-                                {"type": "text", "text": user_prompt}]}]}
+                                {"type": "text", "text": (system_prompt + user_prompt).strip()}]}]}
     for attempt in range(args.attempts):
-        response = requests.post(MODEL_ENDPOINT, json=payload, timeout=900)
+        response = requests.post(MODEL_ENDPOINT, json=payload, timeout=REQUEST_TIMEOUT)
         response.raise_for_status()
         content = response.json()["choices"][0]["message"].get("content") or ""
         try:
