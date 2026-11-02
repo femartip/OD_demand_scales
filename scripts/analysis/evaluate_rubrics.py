@@ -51,6 +51,8 @@ def auc(levels, failures):
 
 
 DIMENSIONS = ("target_abundance", "target_scale", "target_visibility", "instance_separation", "image_degradation", "appearance_atypicality")
+# High-capacity references: cached frozen features used directly, with no interpretable stage.
+EMBEDDINGS = ("resnet50", "dinov2")
 
 
 def ridge_score(estimator, features, scores):
@@ -62,7 +64,7 @@ def fit_ridge(features, scores, seed):
     inner = KFold(n_splits=5, shuffle=True, random_state=seed)
     for m in range(scores.shape[1]):
         search = GridSearchCV(make_pipeline(StandardScaler(), Ridge()),
-                              {"ridge__alpha": [0.1, 1, 10, 100, 1000]},
+                              {"ridge__alpha": [0.1, 1, 10, 100, 1000, 10000, 100000, 1000000]},
                               scoring=ridge_score, cv=inner)
         search.fit(features, scores[:, m])
         scaler, ridge = search.best_estimator_.steps[0][1], search.best_estimator_.steps[1][1]
@@ -129,7 +131,7 @@ if args.partition == "calibration":
 else:
     images["cohort"] = "random"
 
-candidates, coverage = {}, []
+candidates, coverage, cached_features = {}, [], {}
 for entry in args.versions:
     version, _, requested = entry.partition(":")
     if version.isdigit():
@@ -140,9 +142,17 @@ for entry in args.versions:
             parser.error("ionescu requires --predictor ridge and uses predicted_score")
         with np.load(baselines_dir(args.partition) / "ionescu_features.npz") as cached:
             annotations = pd.DataFrame({key: cached[key] for key in ("dataset", "image_id")})
-            embeddings = pd.DataFrame(cached["features"], index=pd.MultiIndex.from_frame(annotations))
+            cached_features[version] = pd.DataFrame(cached["features"], index=pd.MultiIndex.from_frame(annotations))
         # The scalar is generated inside each training fold, never read from ionescu.csv.
         annotations["predicted_score"] = 0.
+    elif version in EMBEDDINGS:
+        if args.predictor != "ridge" or requested not in ("", "embedding"):
+            parser.error(f"{version} requires --predictor ridge and uses the full feature vector")
+        with np.load(baselines_dir(args.partition) / f"{version}_features.npz") as cached:
+            annotations = pd.DataFrame({key: cached[key] for key in ("dataset", "image_id")})
+            cached_features[version] = pd.DataFrame(cached["features"], index=pd.MultiIndex.from_frame(annotations))
+        # Placeholder column; the design matrix is swapped in for the real features below.
+        annotations["embedding"] = 0.
     else:
         annotations = pd.read_csv(level_path(version, args.partition, args.prompt_strategy), dtype={"image_id": str})
     if args.annotator and version != "ionescu":
@@ -231,8 +241,11 @@ for version, candidate in candidates.items():
     x = images[candidate["inputs"]].to_numpy(dtype=float)
     is_ridge = candidate["predictor"] == "ridge"
     is_ionescu = version == "ionescu"
+    is_embedding = version in EMBEDDINGS
+    if is_embedding:
+        x = cached_features[version].loc[pd.MultiIndex.from_frame(images[["dataset", "image_id"]])].to_numpy(dtype=float)
     if is_ionescu:
-        features = embeddings.loc[pd.MultiIndex.from_frame(images[["dataset", "image_id"]])].to_numpy(dtype=float)
+        features = cached_features[version].loc[pd.MultiIndex.from_frame(images[["dataset", "image_id"]])].to_numpy(dtype=float)
     levels = np.full(len(images), np.nan) if is_ridge else x[:, 0].astype(int)
     if frozen is None:
         baseline_mean = y[random_ids].mean(axis=0)
@@ -291,7 +304,7 @@ for version, candidate in candidates.items():
         if frozen is not None:
             mappings.extend(saved[saved["model"].eq(model)].to_dict("records"))
         elif is_ridge:
-            for j, feature in enumerate(candidate["columns"]):
+            for j, feature in enumerate([] if is_embedding else candidate["columns"]):
                 mappings.append(dict(**metadata, feature=feature, coefficient=coefficients[j, m],
                                      intercept=intercepts[m], alpha=alphas[m], n_train=len(random_ids)))
             selected_alphas.append(dict(version=version, model=model, fold=-1, alpha=alphas[m], n_train=len(random_ids), first_stage_alpha=stage1_alpha if is_ionescu else np.nan))
@@ -299,7 +312,7 @@ for version, candidate in candidates.items():
             for level in range(1, 6):
                 mappings.append(dict(**metadata, level=level, prediction=mapping[level - 1, m], n_train=support[level - 1]))
         frame = images[["dataset", "image_id", "cohort"]].copy()
-        for j, column in enumerate(candidate["columns"]):
+        for j, column in enumerate([] if is_embedding else candidate["columns"]):
             frame[column] = x[:, j]
         frame = frame.assign(version=version, model=model, level=levels, score=y[:, m],
                              prediction=predicted[:, m], baseline=baseline[:, m], fold=fold_ids, n_train_level=n_train_level)
