@@ -8,7 +8,7 @@ import argparse
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from common.experiment import (PARTITIONS, PROMPT_STRATEGIES, annotations_dir, figures_dir, object_detection_root, load_manifest, split_config_for_version,)
+from common.experiment import (PARTITIONS, PROMPT_STRATEGIES, annotations_dir, figures_dir, object_detection_root, load_manifest, split_config_for_version, load_experiment_config,)
 
 
 
@@ -17,7 +17,7 @@ parser.add_argument("version")
 parser.add_argument("task", choices=("detection", "localization"))
 parser.add_argument("prompt_strategy", choices=PROMPT_STRATEGIES)
 parser.add_argument("--partition", required=True, choices=PARTITIONS)
-parser.add_argument("--columns", nargs="+", default=["level"], help="Annotation columns, or dimensions for all six levels")
+parser.add_argument("--columns", nargs="+", default=["level"], help="Annotation columns, or dimensions for all configured levels")
 parser.add_argument("--annotator", help="Select one annotator from merged annotations")
 args = parser.parse_args()
 
@@ -53,7 +53,8 @@ if args.annotator:
 assert not gpt_diff.duplicated(["dataset", "image_id"]).any(), "Select one annotation per image with --annotator"
 columns = args.columns
 if columns == ["dimensions"]:
-    columns = [f"{name}_level" for name in ("target_abundance", "target_scale", "target_visibility", "instance_separation", "image_degradation", "appearance_atypicality")]
+    dimensions = load_experiment_config(version)["rubric"]["prompts_separate"]
+    columns = [f"{name}_level" for name in dimensions]
 if columns != ["level"]:
     gpt_diff[columns] = gpt_diff[columns].apply(pd.to_numeric, errors="coerce")
     manifest = load_manifest(args.partition, split_config=split_config_for_version(version))
@@ -63,11 +64,11 @@ if columns != ["level"]:
 if columns != ["level"]:
     grouped = df.groupby(["dataset", "image_id"], as_index=False)[metric].mean()
     final = gpt_diff.merge(grouped, on=["dataset", "image_id"], validate="one_to_one")
-    layout = (int(np.ceil(len(columns) / 3)), min(3, len(columns)))
+    layout = (int(np.ceil(len(columns) / 2)), min(2, len(columns)))
     for cohort, frame in final.groupby("cohort"):
         suffix = "_".join(args.columns)
         for plot in ("distribution", "performance"):
-            fig, axes = plt.subplots(*layout, figsize=(5 * layout[1], 4 * layout[0]), squeeze=False)
+            fig, axes = plt.subplots(*layout, figsize=(3.7 * layout[1], 2.2 * layout[0]), squeeze=False)
             for ax, column in zip(axes.flat, columns):
                 data = frame[frame[column].isin(range(1, 6))]
                 stats = data.groupby(column)[metric].agg(["mean", "sem", "count"]).reindex(range(1, 6))
@@ -80,11 +81,16 @@ if columns != ["level"]:
                     ax.set(ylabel=f"Mean {task} S", ylim=(0, 1))
                 ax.set(title=column.removesuffix("_level").replace("_", " ").title(),
                        xticks=range(1, 6), xticklabels=[f"{level}\nn={count.loc[level]}" for level in range(1, 6)])
+                ax.title.set_fontsize(12)
+                ax.yaxis.label.set_size(10)
+                ax.tick_params(labelsize=10)
+                ax.grid(axis="y", alpha=0.15)
             for ax in list(axes.flat)[len(columns):]:
                 ax.set_visible(False)
-            fig.suptitle(f"v{version} / {cohort} / {plot}" + (" (approx. 95% mean intervals)" if plot == "performance" else ""))
+            fig.suptitle(f"{display_name} / {cohort} / {plot}", fontsize=13)
             fig.tight_layout()
             fig.savefig(figure_dir / f"v{version}_{task}_{prompt_strategy}_{cohort}_{suffix}_{plot}.pdf")
+            fig.savefig(figure_dir / f"v{version}_{task}_{prompt_strategy}_{cohort}_{suffix}_{plot}.png", dpi=160)
             plt.close(fig)
         fractions = [column for column in frame if column.endswith("_severe_fraction")]
         if fractions:

@@ -142,6 +142,10 @@ for marker in ("[TASK]", "[TASK_DEFINITION]"):
   if marker not in prompt_template:
     raise ValueError(f"{prompt_path} must contain the {marker} marker")
 prompt_template = prompt_template.replace("[TASK_DEFINITION]", task_definition).replace("[TASK]", task)
+if "[TARGET CATEGORIES]" in prompt_template:
+  categories_path = resolve_repo_path(experiment_config["rubric"]["target_categories"][dataset])
+  categories = json.loads(categories_path.read_text(encoding="utf-8"))
+  prompt_template = prompt_template.replace("[TARGET CATEGORIES]", ", ".join(categories))
 system_prompt, user_prompt = prompt_template.split("[TARGET_IMAGE]", maxsplit=1)
 
 image_markers = re.findall(r"\[IMAGE:[^\]]+\]", system_prompt)

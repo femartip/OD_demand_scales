@@ -8,7 +8,7 @@ import argparse
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from common.experiment import (PARTITIONS, PROMPT_STRATEGIES, annotations_dir, figures_dir, object_detection_root, load_manifest, split_config_for_version,)
+from common.experiment import (PARTITIONS, PROMPT_STRATEGIES, annotations_dir, figures_dir, object_detection_root, load_manifest, split_config_for_version, load_experiment_config,)
 
 
 
@@ -17,9 +17,12 @@ parser.add_argument("version")
 parser.add_argument("task", choices=("detection", "localization"))
 parser.add_argument("prompt_strategy", choices=PROMPT_STRATEGIES)
 parser.add_argument("--partition", required=True, choices=PARTITIONS)
-parser.add_argument("--columns", nargs="+", default=["level"], help="Annotation columns, or dimensions for all six levels")
+parser.add_argument("--columns", nargs="+", default=["level"], help="Annotation columns, or dimensions for all configured levels")
 parser.add_argument("--annotator", help="Select one annotator from merged annotations")
+parser.add_argument("--compare-families", nargs=2, metavar="FAMILY", help="Overlay two families in the same dimension panels")
 args = parser.parse_args()
+if args.compare_families and args.columns == ["level"]:
+    parser.error("--compare-families requires dimension columns")
 
 version = str(args.version)
 task = args.task
@@ -51,7 +54,8 @@ if args.annotator:
 assert not gpt_diff.duplicated(["dataset", "image_id"]).any(), "Select one annotation per image with --annotator"
 columns = args.columns
 if columns == ["dimensions"]:
-    columns = [f"{name}_level" for name in ("target_abundance", "target_scale", "target_visibility", "instance_separation", "image_degradation", "appearance_atypicality")]
+    dimensions = load_experiment_config(version)["rubric"]["prompts_separate"]
+    columns = [f"{name}_level" for name in dimensions]
 if columns != ["level"]:
     gpt_diff[columns] = gpt_diff[columns].apply(pd.to_numeric, errors="coerce")
     manifest = load_manifest(args.partition, split_config=split_config_for_version(version))
@@ -121,28 +125,55 @@ available_models = set(df["model"].unique())
 
 if columns != ["level"]:
     final = df.merge(gpt_diff, on=["dataset", "image_id"], validate="many_to_one")
+    groups = {family: [family] for family in model_families}
+    if args.compare_families:
+        for family in args.compare_families:
+            if family not in model_families:
+                parser.error(f"Unknown family: {family}; choose from {', '.join(model_families)}")
+        groups = {"_vs_".join(args.compare_families): args.compare_families}
     for cohort, frame in final.groupby("cohort"):
-        for family, family_models in model_families.items():
+        for group, families in groups.items():
+            family_models = [model for family in families for model in model_families[family]]
             data = frame[frame["model"].isin(family_models)]
             if data.empty:
                 continue
-            layout = (int(np.ceil(len(columns) / 3)), min(3, len(columns)))
-            fig, axes = plt.subplots(*layout, figsize=(5 * layout[1], 4 * layout[0]), squeeze=False)
+            layout = (int(np.ceil(len(columns) / 2)), min(2, len(columns)))
+            fig, axes = plt.subplots(*layout, figsize=(3.7 * layout[1], 2.2 * layout[0]), squeeze=False)
             for ax, column in zip(axes.flat, columns):
                 valid = data[data[column].isin(range(1, 6))]
                 count = valid.drop_duplicates(["dataset", "image_id"])[column].value_counts()
-                for model, samples in valid.groupby("model"):
-                    trend = samples.groupby(column)["score"].mean().reindex(range(1, 6))
-                    ax.plot(trend.index, trend, marker="o", label=model, color=color_dict.get(model))
-                ax.set(title=column.removesuffix("_level").replace("_", " ").title(), ylim=(0, 1), ylabel=f"{task} S",
+                for index, family in enumerate(families):
+                    palette = (plt.cm.Blues, plt.cm.Oranges)[index] if args.compare_families else plt.cm.viridis
+                    colors = palette(np.linspace(0.4, 0.95, len(model_families[family])))
+                    for model, model_color in zip(model_families[family], colors):
+                        samples = valid[valid["model"].eq(model)]
+                        if samples.empty:
+                            continue
+                        trend = samples.groupby(column)["score"].mean().reindex(range(1, 6))
+                        label = model.removesuffix("-coco-torch")
+                        ax.plot(trend.index, trend, marker=("o", "^")[index], linestyle=("-", "--")[index],
+                                markersize=3.5, linewidth=1.3, label=label, color=model_color)
+                ax.set(title=column.removesuffix("_level").replace("_", " ").title(), ylim=(0, 1), ylabel=f"Mean {task} S",
                        xticks=range(1, 6), xticklabels=[f"{level}\nn={count.get(level, 0)}" for level in range(1, 6)])
-            for ax in list(axes.flat)[len(columns):]:
-                ax.set_visible(False)
+                ax.title.set_fontsize(12)
+                ax.yaxis.label.set_size(10)
+                ax.tick_params(labelsize=10)
+                ax.grid(axis="y", alpha=0.15)
+            spare = list(axes.flat)[len(columns):]
+            for ax in spare:
+                ax.set_axis_off()
             handles, labels = axes.flat[0].get_legend_handles_labels()
-            fig.legend(handles, labels, loc="lower center", ncol=2, fontsize=8)
-            fig.suptitle(f"v{version} / {family_display_names[family]} / {cohort}")
-            fig.tight_layout(rect=(0, 0.12, 1, 0.96))
-            fig.savefig(figure_dir / f"v{version}_{family}_{task}_{prompt_strategy}_{cohort}_{'_'.join(args.columns)}_accuracy_curves.pdf")
+            if spare:
+                spare[0].legend(handles, labels, loc="center", ncol=len(families), fontsize=9,
+                                title="Model variants", title_fontsize=11, frameon=False, handlelength=2)
+            else:
+                fig.legend(handles, labels, loc="lower center", ncol=min(5, len(labels)), fontsize=9, frameon=False)
+            title = " + ".join(family_display_names[family] for family in families)
+            fig.suptitle(f"{title} / {cohort}", fontsize=13)
+            fig.tight_layout(rect=(0, 0 if spare else 0.1, 1, 0.97))
+            stem = f"v{version}_{group}_{task}_{prompt_strategy}_{cohort}_{'_'.join(args.columns)}_accuracy_curves"
+            fig.savefig(figure_dir / f"{stem}.pdf")
+            fig.savefig(figure_dir / f"{stem}.png", dpi=160)
             plt.close(fig)
     sys.exit(0)
 

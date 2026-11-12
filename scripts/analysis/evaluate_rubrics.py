@@ -8,6 +8,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.isotonic import IsotonicRegression
 from sklearn.model_selection import KFold, GridSearchCV
 from sklearn.linear_model import Ridge
@@ -18,7 +19,7 @@ from scipy.stats import rankdata
 from ionescu import fit_ionescu
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from common.experiment import (PARTITIONS, PROMPT_STRATEGIES, REPO_ROOT, annotations_dir, baselines_dir, load_manifest, load_split_config, object_detection_root,split_config_for_version)
+from common.experiment import (PARTITIONS, PROMPT_STRATEGIES, REPO_ROOT, annotations_dir, baselines_dir, load_experiment_config, load_manifest, load_split_config, object_detection_root,split_config_for_version)
 
 
 def display(name):
@@ -50,9 +51,23 @@ def auc(levels, failures):
     return np.divide(wins, pairs, out=np.full(np.shape(pairs), np.nan), where=pairs > 0)
 
 
-DIMENSIONS = ("target_abundance", "target_scale", "target_visibility", "instance_separation", "image_degradation", "appearance_atypicality")
+# A rubric version declares its own dimensions, so adding one needs no change here. Versions
+# before v19 have no table and use the original six. Abundance and scale must stay first, since
+# the abundance-and-scale feature sets take the leading pair.
+DEFAULT_DIMENSIONS = ("target_abundance", "target_scale", "target_visibility", "instance_separation", "image_degradation", "appearance_atypicality")
+
+
+def rubric_dimensions(version):
+    separate = load_experiment_config(version)["rubric"].get("prompts_separate")
+    return tuple(separate) if separate else DEFAULT_DIMENSIONS
+
+
+DIMENSIONS = tuple(dict.fromkeys(name for path in sorted((REPO_ROOT / "configs/experiments").glob("v*.toml"))
+                                 for name in rubric_dimensions(path.stem.removeprefix("v"))))
 # High-capacity references: cached frozen features used directly, with no interpretable stage.
 EMBEDDINGS = ("resnet50", "dinov2")
+# Predictors that map a feature vector to a score, as opposed to one level to a score.
+REGRESSORS = ("ridge", "rf")
 
 
 def ridge_score(estimator, features, scores):
@@ -74,6 +89,22 @@ def fit_ridge(features, scores, seed):
         intercepts.append(ridge.intercept_ - scaler.mean_ @ coefficient)
         alphas.append(ridge.alpha)
     return np.array(coefficients).T, np.array(intercepts), np.array(alphas)
+
+
+def fit_forest(features, scores, seed):
+    # One forest per detector, tuning only the minimum samples needed to split a node.
+    forests = []
+    inner = KFold(n_splits=5, shuffle=True, random_state=seed)
+    for m in range(scores.shape[1]):
+        search = GridSearchCV(RandomForestRegressor(random_state=seed, n_jobs=-1),
+                              {"min_samples_split": [2, 50, 200]}, scoring=ridge_score, cv=inner)
+        search.fit(features, scores[:, m])
+        forests.append(search.best_estimator_)
+    return forests
+
+
+def forest_predict(forests, features):
+    return np.clip(np.column_stack([forest.predict(features) for forest in forests]), 0, 1)
 
 
 def risk_auc(risk, failures):
@@ -100,7 +131,7 @@ parser.add_argument("--partition", required=True, choices=PARTITIONS)
 parser.add_argument("--failure-thresholds", nargs="+", type=float, default=[0.25, 0.5, 0.75])
 parser.add_argument("--bootstrap", type=int, default=1000)
 parser.add_argument("--mappings", type=Path, help="Frozen development mappings.csv; no refitting")
-parser.add_argument("--predictor", choices=("isotonic", "ridge"), default="isotonic")
+parser.add_argument("--predictor", choices=("isotonic", *REGRESSORS), default="isotonic")
 parser.add_argument("--features", nargs="+", choices=("levels", "levels-and-fractions", "abundance-and-scale", *DIMENSIONS), default=["levels"])
 parser.add_argument("--ablations", action="store_true", help="Add leave-one-dimension-out and abundance/scale-plus-one ridge assessors")
 parser.add_argument("--auc-score", choices=("level", "prediction"), help="Default: level for isotonic runs, prediction for ridge comparisons")
@@ -109,12 +140,14 @@ args = parser.parse_args()
 if args.partition == "locked_confirmation" and args.mappings is None:
     parser.error("locked_confirmation requires --mappings from development")
 
-if args.ablations and args.predictor != "ridge":
-    parser.error("--ablations requires --predictor ridge")
+if args.ablations and args.predictor not in REGRESSORS:
+    parser.error("--ablations requires --predictor ridge or rf")
+if args.predictor == "rf" and args.mappings is not None:
+    parser.error("--mappings cannot carry a forest; refit it on the partition being evaluated")
 
-auc_score = args.auc_score or ("prediction" if args.predictor == "ridge" else "level")
-if args.predictor == "ridge" and auc_score == "level":
-    parser.error("ridge comparisons require --auc-score prediction")
+auc_score = args.auc_score or ("prediction" if args.predictor in REGRESSORS else "level")
+if args.predictor in REGRESSORS and auc_score == "level":
+    parser.error(f"{args.predictor} comparisons require --auc-score prediction")
 metric = f"{args.task}_quality"
 run_name = "_".join(f"v{v}" if v.isdigit() else v.replace(":", "-") for v in args.versions) + f"_{args.task}_{args.prompt_strategy}"
 if args.predictor != "isotonic" or args.features != ["levels"] or auc_score != "level":
@@ -160,6 +193,7 @@ for entry in args.versions:
     assert not annotations.duplicated(["dataset", "image_id"]).any(), "Select one annotation per image with --annotator"
     scalar = "level" in annotations
     baseline = not version.split(":")[0].isdigit()
+    dimensions = DEFAULT_DIMENSIONS if baseline else rubric_dimensions(version)
     selections = ["level"] if scalar else list(dict.fromkeys(args.features))
     if baseline:
         # Default to every numeric feature the baseline wrote; name:feature picks a subset.
@@ -168,18 +202,18 @@ for entry in args.versions:
         selections = [requested] if requested else [",".join(available)]
     if args.ablations and not scalar and not baseline:
         selections = list(dict.fromkeys([*selections, "levels", "abundance-and-scale",
-                                        *[f"without-{name}" for name in DIMENSIONS],
-                                        *[f"abundance-and-scale-plus-{name}" for name in DIMENSIONS[2:]]]))
+                                        *[f"without-{name}" for name in dimensions],
+                                        *[f"abundance-and-scale-plus-{name}" for name in dimensions[2:]]]))
     selected = []
     for selection in selections:
         if baseline:
             columns, kind = selection.split(","), args.predictor
         elif scalar:
             columns, kind = ["level"], "isotonic"
-        elif selection in DIMENSIONS:
+        elif selection in dimensions:
             columns, kind = [f"{selection}_level"], args.predictor
         else:
-            columns = [f"{name}_level" for name in DIMENSIONS]
+            columns = [f"{name}_level" for name in dimensions]
             if selection.startswith("without-"):
                 columns.remove(f"{selection.removeprefix('without-')}_level")
             elif selection.startswith("abundance-and-scale-plus-"):
@@ -187,10 +221,10 @@ for entry in args.versions:
             elif selection == "abundance-and-scale":
                 columns = columns[:2]
             elif selection == "levels-and-fractions":
-                columns += [f"{name}_severe_fraction" for name in DIMENSIONS[1:]]
+                columns += [f"{name}_severe_fraction" for name in dimensions[1:] if f"{name}_severe_fraction" in annotations]
             kind = args.predictor
-            if kind != "ridge":
-                parser.error("Multiple dimensions require --predictor ridge; select one dimension for isotonic")
+            if kind not in REGRESSORS:
+                parser.error("Multiple dimensions require --predictor ridge or rf; select one dimension for isotonic")
         name = version if (scalar or baseline) else f"{version}:{selection}"
         candidates[name] = dict(version=version, columns=columns, predictor=kind,
                                 inputs=[version if scalar else f"{version}:{column}" for column in columns])
@@ -240,18 +274,22 @@ estimates, bootstraps = {}, {}
 for version, candidate in candidates.items():
     x = images[candidate["inputs"]].to_numpy(dtype=float)
     is_ridge = candidate["predictor"] == "ridge"
+    is_forest = candidate["predictor"] == "rf"
+    is_regression = is_ridge or is_forest
     is_ionescu = version == "ionescu"
     is_embedding = version in EMBEDDINGS
     if is_embedding:
         x = cached_features[version].loc[pd.MultiIndex.from_frame(images[["dataset", "image_id"]])].to_numpy(dtype=float)
     if is_ionescu:
         features = cached_features[version].loc[pd.MultiIndex.from_frame(images[["dataset", "image_id"]])].to_numpy(dtype=float)
-    levels = np.full(len(images), np.nan) if is_ridge else x[:, 0].astype(int)
+    levels = np.full(len(images), np.nan) if is_regression else x[:, 0].astype(int)
     if frozen is None:
         baseline_mean = y[random_ids].mean(axis=0)
         if is_ionescu:
             stage1, coefficients, intercepts, alphas = fit_ionescu(features[random_ids], y[random_ids], config["seed"])
             stage1_coef, stage1_intercept, stage1_alpha = stage1.coef_, stage1.intercept_, stage1.alpha_
+        elif is_forest:
+            forests = fit_forest(x[random_ids], y[random_ids], config["seed"])
         elif is_ridge:
             coefficients, intercepts, alphas = fit_ridge(x[random_ids], y[random_ids], config["seed"])
         else:
@@ -278,12 +316,18 @@ for version, candidate in candidates.items():
         x = (features @ stage1_coef + stage1_intercept)[:, None]
         np.savez(output_dir / "ionescu_stage1.npz", coefficient=stage1_coef,
                  intercept=stage1_intercept, alpha=stage1_alpha)
-    predicted = np.clip(x @ coefficients + intercepts, 0, 1) if is_ridge else mapping[levels - 1].copy()
+    if is_forest:
+        predicted = forest_predict(forests, x)
+    else:
+        predicted = np.clip(x @ coefficients + intercepts, 0, 1) if is_ridge else mapping[levels - 1].copy()
     baseline = np.broadcast_to(baseline_mean, y.shape).copy()
     fold_ids = np.full(len(images), -1)
-    n_train_level = np.full(len(images), np.nan) if is_ridge else support[levels - 1].copy()
+    n_train_level = np.full(len(images), np.nan) if is_regression else support[levels - 1].copy()
     for fold, (train, test) in enumerate(folds):
-        if is_ridge:
+        if is_forest:
+            predicted[test] = forest_predict(fit_forest(x[train], y[train], config["seed"]), x[test])
+            print(f"rf: fitted {len(models)} forests for fold {fold + 1}/{len(folds)}", flush=True)
+        elif is_ridge:
             if is_ionescu:
                 stage1, coef, intercept, alpha = fit_ionescu(features[train], y[train], config["seed"])
                 x[test, 0] = stage1.predict(features[test])
@@ -303,6 +347,10 @@ for version, candidate in candidates.items():
                         prompt_strategy=args.prompt_strategy)
         if frozen is not None:
             mappings.extend(saved[saved["model"].eq(model)].to_dict("records"))
+        elif is_forest:
+            for j, feature in enumerate(candidate["columns"]):
+                mappings.append(dict(**metadata, feature=feature, importance=forests[m].feature_importances_[j],
+                                     min_samples_split=forests[m].min_samples_split, n_train=len(random_ids)))
         elif is_ridge:
             for j, feature in enumerate([] if is_embedding else candidate["columns"]):
                 mappings.append(dict(**metadata, feature=feature, coefficient=coefficients[j, m],
@@ -365,8 +413,12 @@ for version, candidate in candidates.items():
                 continue
             for l in range(1, 6):
                 scores_at_level = observed[x[ids, j] == l].mean(axis=1)
+                boot = (scores_at_level[rng.integers(len(scores_at_level), size=(args.bootstrap, len(scores_at_level)))].mean(axis=1)
+                        if len(scores_at_level) else np.full(args.bootstrap, np.nan))
+                low, high = interval(boot)
                 level_table.append(dict(version=version, dimension=column, cohort=cohort, level=l, n_images=len(scores_at_level),
-                                        mean=np.mean(scores_at_level) if len(scores_at_level) else np.nan))
+                                        mean=np.mean(scores_at_level) if len(scores_at_level) else np.nan,
+                                        ci_low=low, ci_high=high))
         print(f"{version} / {cohort}: RMSE {values['rmse']:.4f}, MSE skill {values['mse_skill']:.3f}")
 
 comparisons = []
