@@ -1,0 +1,180 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "anyOf": [
+    {
+      "type": "object",
+      "properties": {
+        "target_abundance": {
+          "$ref": "#/$defs/dimension"
+        },
+        "target_scale": {
+          "$ref": "#/$defs/dimension"
+        },
+        "target_visibility": {
+          "$ref": "#/$defs/dimension"
+        },
+        "instance_separation": {
+          "$ref": "#/$defs/dimension"
+        },
+        "image_degradation": {
+          "$ref": "#/$defs/dimension"
+        },
+        "appearance_atypicality": {
+          "$ref": "#/$defs/dimension"
+        },
+        "category_diversity": {
+          "$ref": "#/$defs/dimension"
+        },
+        "target_count_estimate": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "target_inventory_uncertain": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "target_abundance",
+        "target_scale",
+        "target_visibility",
+        "instance_separation",
+        "image_degradation",
+        "appearance_atypicality",
+        "category_diversity",
+        "target_count_estimate",
+        "target_inventory_uncertain"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "target_abundance": {
+          "$ref": "#/$defs/empty_dimension"
+        },
+        "target_scale": {
+          "$ref": "#/$defs/empty_dimension"
+        },
+        "target_visibility": {
+          "$ref": "#/$defs/empty_dimension"
+        },
+        "instance_separation": {
+          "$ref": "#/$defs/empty_dimension"
+        },
+        "image_degradation": {
+          "$ref": "#/$defs/empty_dimension"
+        },
+        "appearance_atypicality": {
+          "$ref": "#/$defs/empty_dimension"
+        },
+        "category_diversity": {
+          "$ref": "#/$defs/empty_dimension"
+        },
+        "target_count_estimate": {
+          "const": 0
+        },
+        "target_inventory_uncertain": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "target_abundance",
+        "target_scale",
+        "target_visibility",
+        "instance_separation",
+        "image_degradation",
+        "appearance_atypicality",
+        "category_diversity",
+        "target_count_estimate",
+        "target_inventory_uncertain"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "target_abundance": {
+          "$ref": "#/$defs/empty_dimension"
+        },
+        "target_scale": {
+          "$ref": "#/$defs/empty_dimension"
+        },
+        "target_visibility": {
+          "$ref": "#/$defs/empty_dimension"
+        },
+        "instance_separation": {
+          "$ref": "#/$defs/empty_dimension"
+        },
+        "image_degradation": {
+          "$ref": "#/$defs/empty_dimension"
+        },
+        "appearance_atypicality": {
+          "$ref": "#/$defs/empty_dimension"
+        },
+        "category_diversity": {
+          "$ref": "#/$defs/empty_dimension"
+        },
+        "target_count_estimate": {
+          "type": "null"
+        },
+        "target_inventory_uncertain": {
+          "const": true
+        }
+      },
+      "required": [
+        "target_abundance",
+        "target_scale",
+        "target_visibility",
+        "instance_separation",
+        "image_degradation",
+        "appearance_atypicality",
+        "category_diversity",
+        "target_count_estimate",
+        "target_inventory_uncertain"
+      ],
+      "additionalProperties": false
+    }
+  ],
+  "$defs": {
+    "dimension": {
+      "type": "object",
+      "properties": {
+        "evidence": {
+          "type": "string"
+        },
+        "level": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 5
+        }
+      },
+      "required": [
+        "evidence",
+        "level"
+      ],
+      "additionalProperties": false
+    },
+    "empty_dimension": {
+      "type": "object",
+      "properties": {
+        "evidence": {
+          "type": "string"
+        },
+        "level": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "evidence",
+        "level"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

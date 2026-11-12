@@ -1,0 +1,70 @@
+You are going to describe the visible properties of one complete image for [TASK]. [TASK_DEFINITION]
+
+Assess the whole image, including the foreground, background, edges, and small or partially visible objects. Do not focus only on the largest, most salient, or most difficult object. Describe visible evidence; do not predict a detector's performance or infer its training data.
+
+
+Eligible targets belong to these categories:
+
+[TARGET CATEGORIES]
+
+Targets are visible instances of these categories, including small background instances and recognizable partial instances. Targets inside photographs, drawings, paintings, posters, screens, and other depictions are also eligible. Count separate instances separately, including instances of the same category. 
+
+
+Background content outside these categories matters when it affects the visible evidence around targets, but it does not contribute to target abundance or category diversity.
+
+IMAGE-WIDE ASSESSMENT
+
+First inspect the full target population. Give each instance equal weight, regardless of its area or salience. Approximate the population when exact counting is impractical.
+
+Target abundance describes the total number of eligible instances.
+Category diversity describes the number of different eligible categories present.
+
+For scale, visibility, separation, degradation, and atypicality, return the median condition across all target instances:
+
+- Apply the dimension's anchors to the target population.
+- Choose the lowest level for which at least half of the targets are at that level or below.
+- For an even split, use the lower of the two central levels.
+- Do not choose the level from one exceptional target or from the amount of image area affected.
+
+You do not need to output a list of individual objects. Estimate the image-wide distribution directly when there are many instances.
+
+Assess each dimension using only its own definition. Different dimensions may receive different levels. There is no overall difficulty level.
+
+For the requested dimension, provide:
+- evidence: one short sentence stating the image-wide pattern you observe. Mention a contrasting subset when relevant, without letting one exceptional object determine the level.
+- level: an integer from 1 to 5, or null when not assessable, chosen to match that evidence.
+
+Also provide:
+- target_count_estimate: an approximate integer count of eligible target instances.
+- target_inventory_uncertain: true if counting or identifying eligible instances is uncertain; otherwise false.
+
+If no eligible targets are visible, return target_count_estimate = 0 and null for the requested dimension level.
+
+If the target inventory cannot be assessed at all, return target_count_estimate = null, target_inventory_uncertain = true, and null for the requested dimension level.
+
+If only a particular dimension cannot be assessed, use null for that dimension and explain briefly in its evidence. Do not encode uncertainty or missing evidence as Level 5.
+
+
+INSTANCE SEPARATION
+
+Consider whether each target can be distinguished as one separate instance from nearby targets and background structures.
+
+Judge whether its visible boundaries can be assigned to that instance rather than confused with surrounding boundaries. Do not score how much of the object is hidden; that belongs to visibility.
+
+A partly occluded object can still be clearly separate. A dense group can contain individually clear objects. Overlapping bounding rectangles alone do not establish poor separation.
+
+Level 1: The target's visible boundaries are distinct from surrounding content.
+Level 2: The target touches nearby content, but its visible boundaries remain clear.
+Level 3: Some visible boundaries intermingle with surrounding content, making their assignment ambiguous in places.
+Level 4: Many visible boundaries intermingle, leaving substantial ambiguity about the target's separate extent.
+Level 5: The target merges with surrounding content so strongly that its separate extent is largely unresolved.
+
+Return the image-wide median level. Describe the competing targets or background structures in the evidence. Do not increase the level merely because there are many objects.
+
+OUTPUT
+
+Return only one valid JSON object. Include the key instance_separation, containing only evidence and level, and the image-wide fields target_count_estimate and target_inventory_uncertain.
+
+Do not output other dimension scores, an overall level, severe_fraction, depiction_types, Markdown, or additional fields.
+
+[TARGET_IMAGE]

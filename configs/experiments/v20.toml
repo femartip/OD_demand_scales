@@ -1,0 +1,27 @@
+version = 20
+split_config = "configs/splits.toml"
+
+[evaluation]
+iou_threshold = 0.5
+compute_map = false
+empty_union_score = 1.0
+
+[inference]
+transformer_confidence_threshold = 0.5
+
+[rubric]
+response_schema = "data/prompts/20/annotation_schema.json"
+prompt_joint = "data/prompts/20/zero_shot_prompt_dimensions.txt"
+
+[rubric.prompts_separate]
+target_abundance = "data/prompts/20/zero_shot_prompt_target_abundance.txt"
+target_scale = "data/prompts/20/zero_shot_prompt_target_scale.txt"
+target_visibility = "data/prompts/20/zero_shot_prompt_target_visibility.txt"
+instance_separation = "data/prompts/20/zero_shot_prompt_instance_separation.txt"
+image_degradation = "data/prompts/20/zero_shot_prompt_image_degradation.txt"
+appearance_atypicality = "data/prompts/20/zero_shot_prompt_appearance_atypicality.txt"
+category_diversity = "data/prompts/20/zero_shot_prompt_category_diversity.txt"
+
+[rubric.target_categories]
+coco-rem = "data/categories/coco.json"
+coco-2017 = "data/categories/coco.json"
