@@ -45,6 +45,7 @@ parser.add_argument("--overwrite", action="store_true", help="Replace this model
 parser.add_argument("--validate-prompt", action="store_true", help="Validate the configured prompt and examples without contacting the model",)
 parser.add_argument("--workers", type=int, default=1, help="Concurrent annotation requests; keep at or below the llama-server --parallel slot count, and size -c for workers x per-request context",)
 parser.add_argument("--dimension", help="Use one configured separate dimension prompt (JSON zero-shot only)")
+parser.add_argument("--temperature", type=float, default=0.0, help="Sampling temperature. Qwen recommends ~0.7 with thinking enabled; 0 is greedy. Runs at different temperatures are written to separate files.")
 args = parser.parse_args()
 if args.dimension and (args.response_format != "json" or args.prompt_strategy != "zeroshot"):
   parser.error("--dimension requires --response-format json and zeroshot")
@@ -178,7 +179,22 @@ if args.dimension:
   output_annotations_dir = output_annotations_dir / "separate" / args.dimension
 os.makedirs(output_annotations_dir, exist_ok=True)
 extension = "jsonl" if args.response_format == "json" else "csv"
-destination_path = output_annotations_dir / f"v{version}_{task_to_evaluate}_{args.prompt_strategy}_labelled_images_{dataset}_{MODEL_NAME}.{extension}"
+stem = f"v{version}_{task_to_evaluate}_{args.prompt_strategy}_labelled_images_{dataset}_{MODEL_NAME}"
+if args.temperature:
+  stem += f"_t{args.temperature:g}"
+# Repeating a configuration draws a new sample rather than continuing the old one: resume a file
+# that is still short of the manifest, otherwise write the next numbered run.
+destination_path = output_annotations_dir / f"{stem}.{extension}"
+run_index = 1
+while destination_path.is_file() and not args.overwrite:
+  if args.response_format == "json":
+    done = sum(1 for record in read_json_annotations(destination_path).values() if record["annotation"] is not None)
+  else:
+    done = len(pd.read_csv(destination_path, delimiter=";").dropna(subset=["level"]))
+  if done < len(image_ids):
+    break
+  run_index += 1
+  destination_path = output_annotations_dir / f"{stem}_run{run_index}.{extension}"
 if args.overwrite and destination_path.is_file():
   destination_path.unlink()
 labelled_prev = destination_path.is_file()
@@ -197,7 +213,7 @@ def annotate_image(image_id, image_path):
   if not image_path.is_file():
     raise FileNotFoundError(f"Manifest image not found: {image_path}")
   encoded_image = encode_image(image_path)
-  payload = {"model": MODEL_ID, "messages": [{"role": "system","content": system_content,},{"role": "user","content": [{"type": "image_url","image_url": {"url": f"data:image/jpeg;base64,{encoded_image}"}},{"type": "text","text": user_prompt,},]},],"temperature": 0,"top_p": 0.95,"max_tokens": MAX_REASONING_TOKENS,"chat_template_kwargs": {"enable_thinking": True}}
+  payload = {"model": MODEL_ID, "messages": [{"role": "system","content": system_content,},{"role": "user","content": [{"type": "image_url","image_url": {"url": f"data:image/jpeg;base64,{encoded_image}"}},{"type": "text","text": user_prompt,},]},],"temperature": args.temperature,"top_p": 0.95,"max_tokens": MAX_REASONING_TOKENS,"chat_template_kwargs": {"enable_thinking": True}}
   if args.response_format == "json":
     payload["response_format"] = {"type": "json_schema", "json_schema": {"name": f"rubric_v{version}", "schema": annotation_schema}}
   # Retrying the identical request is worth doing here: reasoning length varies
